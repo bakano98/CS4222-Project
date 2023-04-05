@@ -18,9 +18,10 @@
 
 // Configures the wake-up timer for neighbour discovery 
 #define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
-
 #define SLEEP_CYCLE  9        	      // 0 for never sleep
 #define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
+
+#define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
 linkaddr_t dest_addr;
@@ -33,6 +34,15 @@ typedef struct {
   unsigned long seq;
   
 } data_packet_struct;
+
+
+/*---------------------------------------------------------------------------*/
+// custom struct to store
+typedef struct {
+  unsigned long src_id;
+  unsigned long recv_timestamp;
+  unsigned long prev_timestamp;
+} packet_store_struct;
 
 /*---------------------------------------------------------------------------*/
 // duty cycle = WAKE_TIME / (WAKE_TIME + SLEEP_SLOT * SLEEP_CYCLE)
@@ -50,6 +60,17 @@ static data_packet_struct data_packet;
 // Current time stamp of the node
 unsigned long curr_timestamp;
 
+// save timestamp when it started sending
+unsigned long start_clock_time;
+
+// save previous time it discovered the neighbour
+unsigned long prev_discovery_timestamp = -1;
+
+// array to store all the packets received so far -- experiment: 50 received packets then we stop
+packet_store_struct storage[NUM_DATA];
+static packet_store_struct current;
+static unsigned int counter = 0;
+
 // Starts the main contiki neighbour discovery process
 PROCESS(nbr_discovery_process, "cc2650 neighbour discovery process");
 AUTOSTART_PROCESSES(&nbr_discovery_process);
@@ -65,17 +86,56 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 
  
     static data_packet_struct received_packet_data;
-    
+
+    curr_timestamp = clock_time();
+
+    // gets the timestamp after offsetting the time it took to send
+    unsigned long after_offset = curr_timestamp - start_clock_time;
+    unsigned long diff = 0;
     // Copy the content of packet into the data structure
     memcpy(&received_packet_data, data, len);
     
 
     // Print the details of the received packet
-    printf("Received neighbour discovery packet %lu with rssi %d from %ld", received_packet_data.seq, (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI),received_packet_data.src_id);
-   
-    printf("\n");
+    printf("========\n");
+    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI),received_packet_data.src_id);
+    printf("========\n");
 
- 
+    printf("Current timestamp: %3lu.%03lu\n", curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+    printf("========\n");
+
+    printf("Timestamp after accounting for offset: %3lu.%03lu\n", after_offset / CLOCK_SECOND, ((after_offset % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+
+    if (prev_discovery_timestamp != -1) {
+      diff = curr_timestamp - prev_discovery_timestamp;
+      printf("Time difference between current and last discovery: %3lu.%03lu\n", diff / CLOCK_SECOND, ((diff % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+      printf("========\n");
+    } else {
+      printf("This is the first discovery -- no previous one yet!\n");
+      printf("========\n");
+    }
+
+    if (counter < NUM_DATA) {
+      current.src_id = received_packet_data.seq;
+      current.recv_timestamp = after_offset;
+      current.prev_timestamp = diff; // if diff = 0, means no previous
+      storage[counter] = current;
+    }
+
+    prev_discovery_timestamp = curr_timestamp;
+    counter++;
+
+    if (counter == NUM_DATA) {
+      printf("| Number | Packet Number | Received Time | Last Received Time |\n");
+      for (int i = 0; i < NUM_DATA; i++) {
+        unsigned long id = storage[i].src_id;
+        unsigned long recv_time = storage[i].recv_timestamp;
+        unsigned long prev_time = storage[i].prev_timestamp;
+        printf("|   %d   |      %lu       |   %3lu.%03lu  |      %3lu.%03lu    |\n", i, id, 
+          recv_time / CLOCK_SECOND, ((recv_time % CLOCK_SECOND)*1000) / CLOCK_SECOND, 
+          prev_time / CLOCK_SECOND, ((prev_time % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+      }
+    }
   }
 
 }
@@ -96,6 +156,8 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
   printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", curr_timestamp, curr_timestamp / CLOCK_SECOND, 
   ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
+  start_clock_time =  curr_timestamp;
+  
   while(1){
 
     // radio on
@@ -104,7 +166,6 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
     // send NUM_SEND number of neighbour discovery beacon packets
     for(i = 0; i < NUM_SEND; i++){
 
-      
      
        // Initialize the nullnet module with information of packet to be trasnmitted
       nullnet_buf = (uint8_t *)&data_packet; //data transmitted
@@ -116,7 +177,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       
       data_packet.timestamp = curr_timestamp;
 
-      printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+      // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
       NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
       
@@ -142,8 +203,10 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 
       // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
       // the average is SLEEP_CYCLE 
-      NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1);  
-      printf(" Sleep for %d slots \n",NumSleep);
+      NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
+
+      // uncomment if necessary -- probably not! 
+      // printf(" Sleep for %d slots \n",NumSleep); 
 
       // NumSleep should be a constant or static int
       for(i = 0; i < NumSleep; i++){
