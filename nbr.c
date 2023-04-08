@@ -30,7 +30,7 @@ linkaddr_t dest_addr;
 /*---------------------------------------------------------------------------*/
 typedef struct {
   unsigned long src_id;
-  unsigned long startup_time;
+  unsigned long startup_time; // appends the time in which the device started up
   unsigned long timestamp;
   unsigned long seq;
   
@@ -109,16 +109,19 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     printf("========\n");
 
 
-    // uncomment this to perform experiment 2.
-    unsigned long startup_B = received_packet_data.startup_time;
-    unsigned long diff_from_startup = curr_timestamp - startup_B;
-    printf("Time taken to receive packet from startup: %3lu.%03lu\n", diff_from_startup / CLOCK_SECOND, ((diff_from_startup % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+    /* Uncomment the following for Experiment 2. This will print out the time taken in order to receive the packet from B*/
+    // unsigned long startup_B = received_packet_data.startup_time;
+    // unsigned long diff_from_startup = received_packet_data.timestamp - startup_B;
+    // printf("=============================================\n");
+    // printf("Packet Number: %ld\n", received_packet_data.seq);
+    // printf("Time taken to receive packet from startup: %3lu.%03lu\n", diff_from_startup / CLOCK_SECOND, ((diff_from_startup % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+    // printf("=============================================\n");
 
     printf("Timestamp after accounting for offset: %3lu.%03lu\n", after_offset / CLOCK_SECOND, ((after_offset % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
     if (prev_discovery_timestamp != -1) {
       diff = curr_timestamp - prev_discovery_timestamp;
-      printf("Time difference between current and last discovery: %3lu.%03lu\n", diff / CLOCK_SECOND, ((diff % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+      printf("%d: Time difference between current and last discovery: %3lu.%03lu\n", counter, diff / CLOCK_SECOND, ((diff % CLOCK_SECOND)*1000) / CLOCK_SECOND);
       printf("========\n");
     } else {
       printf("This is the first discovery -- no previous one yet!\n");
@@ -136,15 +139,19 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     counter++;
 
     if (counter == NUM_DATA) {
-      printf(" Number , Packet Number , Received Time , Last Received Time \n");
+      printf("Number, Packet Number, Received Time, Interval Between Receive\n");
+      unsigned long total_time = 0;
       for (int i = 0; i < NUM_DATA; i++) {
         unsigned long id = storage[i].src_id;
         unsigned long recv_time = storage[i].recv_timestamp;
         unsigned long prev_time = storage[i].prev_timestamp;
+        total_time += prev_time;
         printf("   %d   ,      %lu       ,   %3lu.%03lu  ,      %3lu.%03lu    \n", i, id, 
           recv_time / CLOCK_SECOND, ((recv_time % CLOCK_SECOND)*1000) / CLOCK_SECOND, 
           prev_time / CLOCK_SECOND, ((prev_time % CLOCK_SECOND)*1000) / CLOCK_SECOND);
       }
+      total_time /= NUM_DATA - 1;
+      printf("Total average interval: %3lu.%03lu\n", total_time / CLOCK_SECOND, ((total_time % CLOCK_SECOND)*1000) / CLOCK_SECOND);
     }
   }
 
@@ -165,7 +172,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 
   printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", curr_timestamp, curr_timestamp / CLOCK_SECOND, 
   ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
-  if (start_first_packet = -1) {
+  if (start_first_packet == -1) {
     start_first_packet = curr_timestamp;
   }
   start_clock_time =  curr_timestamp;
@@ -194,7 +201,8 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
       
 
-      // wait for WAKE_TIME before sending the next packet
+      // wait for WAKE_TIME before sending the next packet. Total will send 3 packets
+      // once at the start, middle, and end.
       if(i != (NUM_SEND - 1)){
 
         rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
@@ -241,7 +249,7 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
 
   PROCESS_BEGIN();
 
-    // initialize data packet sent for neighbour discovery exchange
+  // initialize data packet sent for neighbour discovery exchange
   data_packet.src_id = node_id; //Initialize the node ID
   data_packet.seq = 0; //Initialize the sequence number of the packet
   
