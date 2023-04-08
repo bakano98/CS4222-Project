@@ -64,6 +64,9 @@ unsigned long curr_timestamp;
 // save timestamp when it started sending
 unsigned long start_clock_time;
 
+// save timestamp when device started sending 1st packet
+unsigned long start_first_packet = -1;
+
 // save previous time it discovered the neighbour
 unsigned long prev_discovery_timestamp = -1;
 
@@ -162,7 +165,9 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 
   printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", curr_timestamp, curr_timestamp / CLOCK_SECOND, 
   ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
-
+  if (start_first_packet = -1) {
+    start_first_packet = curr_timestamp;
+  }
   start_clock_time =  curr_timestamp;
   
   while(1){
@@ -179,7 +184,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       nullnet_len = sizeof(data_packet); //length of data transmitted
       
       data_packet.seq++;
-      
+      data_packet.startup_time = start_first_packet;
       curr_timestamp = clock_time();
       
       data_packet.timestamp = curr_timestamp;
