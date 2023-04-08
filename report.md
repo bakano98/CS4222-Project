@@ -80,15 +80,22 @@ Important: Please note that the two way latency is the time that it takes for no
     The cumulative distribution of the intervals between packet reception on A hearing from B is as follows:
     ![](./images/q1-graph.png)
 
-    For this experiment, we performed repeated the experiment for a total of 50 times. The first packet discovered is not taken into account as the interval is 0. Thus, our dataset includes a total of 49 intervals.
+    For this experiment, we performed repeated the experiment for a total of 50 times. The first packet discovered is not taken into account as the interval is 0. Thus, our dataset includes a total of 49 intervals. A total of 449 data packets were sent to A from B, during the 50 runs of the experiment.
 
-    We plotted the cumulative distribution curve using a normal distribution function. The `MEAN` was calculated to be `4.20887755102041`, and the standard deviation to be `4.31043993613497`.
+    We plotted the cumulative distribution curve by splitting the dataset into intervals increasing by 1s (i.e. 0 - 1s, 0 - 2s... etc), then finding how many packets are received during those intervals.
+
+    The average time for device A to discover B, according to our data is approximately 4.20s
     
 
 1. Reset device B and observe how long it takes for device A to hear from device B after device B reboots. You may need to modify the given code to observe this duration. Perform the experiments at least 10 times and plot the cumulative distribution.
+    
+    ![](./images/q2-graph.png)
+    The way the distirubtion curve was plotted is the same as in Question 1.
+    Modifications were made to the structure of the data packet. We added a new field, `startup_time` in order to append the time in which the device booted up and started sending the first packet.
 
-    Modifications made, current is `NUM_DATA` times then it will print out everything.
-    Take the data, then plot in Excel.
+    We performed the experiment 20 times (manually). Each time, we rebooted B, then printed to serial monitor the time it took to receive the packet from B, which is calculated as `timestamp` - `startup_time`.
+
+    The average time for device A to discover B after resetting, according to our data is approximately 4.08s
 
 1. Try out different settings and discuss your observations.
 
@@ -96,26 +103,46 @@ Important: Please note that the two way latency is the time that it takes for no
     1. Change sleep slot (SLEEP_SLOT)
     1. Change sleep cycle (SLEEP_CYCLE)
 
+    For this part of the experiment, we took the readings 50 times and took the average time to discover each other. In total, there are 49 intervals (50 data points but the first cannot be used as there is no interval before it).
 
     The different settings we used were as follows:
-    | Setting | Time to Discovery |
-    | ------- | ----------------- |
-    | a       | b                 |
+    | Experiment Number | Setting | Average Time to Discovery (A discovers B) | Average Time to Discovery (B discovers A) | Last Packet Number (B -> A) | Last Packet Number (A -> B) |
+    | ------------------| ------- | ------------------------- | ------------------------| --- | -- |
+    | 1 | Change wake time to 0.05s (RTIMER_SECOND/20)      |   12.300s  | 11.860s | 1265 | 1249 |
+    | 2 | Change wake time to 0.2s (RTIMER/5)             | 2.757s | 2.671s | 267 | 238 |
+    | 3 | Change sleep cycle to 5                          | 1.945s | 2.031s | 322 | 403 |
+    | 4 | Change sleep slot to RTIMER_SECOND/12            | 3.976s | 4.015s | 485 | 473 |
 
     The cumulative distribution for each setting (a), (b) is as follows:
+    
+    // will add the curves here
+    ![figure1]  
+    ![figure2]  
+    ![figure3]  
+    ... tbd  
+
+    When the wake time is decreased to 0.05s, the average time it takes for A to discover B and vice-versa is longer as shown in the table above.
+    This is because there is a smaller window for A to discover B even though more packets are being sent per second. With a shorter window for discovery, it is harder for discovery to occur.
+    When we increase the wake time to 0.2s, as expected, the average time taken for A to discover B is shorter. Even though less packets are being sent per second, the window in which A can discover a packet sent by B is larger (as A is active for a longer time) leading to better discovery of packets sent.
+
+    When the sleep cycle is lowered to 5 (i.e. Tsleep is decreased because Tsleep = SLEEP_SLOT * SLEEP_CYCLE), the amount of time it takes for A to discover B is shorter, and vice-versa. This is likely because both devices are more active and sending more packets with the same amount of WAKE_TIME to discover the sent packets. This is corroborated by the fact that the last packet received by A in Experiment 2 has a sequence number of 267, whereas the last packet received by A in Experiment 3 has a sequence number of 322 despite having a much lower average discovery time.
+
+    When the sleep slot is reduced, the amount of time it takes for A to discover B is also lesser. This is as expected, because similar to lowering the sleep cycles, both devices are more active overall and thus, more packets are being sent. Since more packets are being sent while maintaining the same receive window (as opposed to the first experiment where the window is reduced), it leads to lower average discovery time. More packets are evidently being sent when we compare the result of this experiment to the base experiment in Question 1 -- where the number of packets received is 449 despite having approximately the same average discovery time.
 
 
 ---
+
 Next, please modify the program (nbr.c) so that two-way discovery (A hears from B AND B hears from A) can be completed in a deterministic manner within 10 seconds. You should choose settings so that the radio power consumption is “minimized”.
 
 a) the algorithm you have implemented  
 b) the parameters chosen   
 c) the maximum two-way latency observed  
 
+`DUTY CYCLE = WAKE_TIME / (WAKE_TIME + SLEEP_CYCLE * SLEEP_SLOT)`
 
 The algorithm implemented to ensure they both hear from each other is...
 
-The paramters chosen are....
+The parameters chosen to be modified are...
 
 The maximum two-way latency observed is...
 
