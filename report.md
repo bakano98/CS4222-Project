@@ -77,9 +77,13 @@ Important: Please note that the two way latency is the time that it takes for no
 1. Using the default settings, observe and record how long the devices take to discover each other. Pick one of the devices as A and plot the cumulative distribution of the intervals between packet receptions on device A hearing from device B.
 
     On the default settings. Will need to monitor A and B and check the FIRST packet received from each other.
-    
-    The cumulative distribution of the intervals between packet recepttion on A hearing from B is as follows:
+    The cumulative distribution of the intervals between packet reception on A hearing from B is as follows:
+    ![](./images/q1-graph.png)
 
+    For this experiment, we performed repeated the experiment for a total of 50 times. The first packet discovered is not taken into account as the interval is 0. Thus, our dataset includes a total of 49 intervals.
+
+    We plotted the cumulative distribution curve using a normal distribution function. The `MEAN` was calculated to be `4.20887755102041`, and the standard deviation to be `4.31043993613497`.
+    
 
 1. Reset device B and observe how long it takes for device A to hear from device B after device B reboots. You may need to modify the given code to observe this duration. Perform the experiments at least 10 times and plot the cumulative distribution.
 
@@ -101,6 +105,19 @@ Important: Please note that the two way latency is the time that it takes for no
     The cumulative distribution for each setting (a), (b) is as follows:
 
 
+---
+Next, please modify the program (nbr.c) so that two-way discovery (A hears from B AND B hears from A) can be completed in a deterministic manner within 10 seconds. You should choose settings so that the radio power consumption is “minimized”.
+
+a) the algorithm you have implemented  
+b) the parameters chosen   
+c) the maximum two-way latency observed  
+
+
+The algorithm implemented to ensure they both hear from each other is...
+
+The paramters chosen are....
+
+The maximum two-way latency observed is...
 
 ---
 

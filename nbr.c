@@ -21,7 +21,7 @@
 #define SLEEP_CYCLE  9        	      // 0 for never sleep
 #define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
 
-#define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
+#define NUM_DATA 50 // modify this to increase the number of experiments -- minimum is 10.
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
 linkaddr_t dest_addr;
@@ -30,6 +30,7 @@ linkaddr_t dest_addr;
 /*---------------------------------------------------------------------------*/
 typedef struct {
   unsigned long src_id;
+  unsigned long startup_time;
   unsigned long timestamp;
   unsigned long seq;
   
@@ -104,6 +105,12 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     printf("Current timestamp: %3lu.%03lu\n", curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
     printf("========\n");
 
+
+    // uncomment this to perform experiment 2.
+    unsigned long startup_B = received_packet_data.startup_time;
+    unsigned long diff_from_startup = curr_timestamp - startup_B;
+    printf("Time taken to receive packet from startup: %3lu.%03lu\n", diff_from_startup / CLOCK_SECOND, ((diff_from_startup % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+
     printf("Timestamp after accounting for offset: %3lu.%03lu\n", after_offset / CLOCK_SECOND, ((after_offset % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
     if (prev_discovery_timestamp != -1) {
@@ -126,12 +133,12 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     counter++;
 
     if (counter == NUM_DATA) {
-      printf("| Number | Packet Number | Received Time | Last Received Time |\n");
+      printf(" Number , Packet Number , Received Time , Last Received Time \n");
       for (int i = 0; i < NUM_DATA; i++) {
         unsigned long id = storage[i].src_id;
         unsigned long recv_time = storage[i].recv_timestamp;
         unsigned long prev_time = storage[i].prev_timestamp;
-        printf("|   %d   |      %lu       |   %3lu.%03lu  |      %3lu.%03lu    |\n", i, id, 
+        printf("   %d   ,      %lu       ,   %3lu.%03lu  ,      %3lu.%03lu    \n", i, id, 
           recv_time / CLOCK_SECOND, ((recv_time % CLOCK_SECOND)*1000) / CLOCK_SECOND, 
           prev_time / CLOCK_SECOND, ((prev_time % CLOCK_SECOND)*1000) / CLOCK_SECOND);
       }
@@ -144,7 +151,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 char sender_scheduler(struct rtimer *t, void *ptr) {
  
   static uint16_t i = 0;
-  
+
   static int NumSleep=0;
  
   // Begin the protothread
@@ -167,7 +174,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
     for(i = 0; i < NUM_SEND; i++){
 
      
-       // Initialize the nullnet module with information of packet to be trasnmitted
+      // Initialize the nullnet module with information of packet to be trasnmitted
       nullnet_buf = (uint8_t *)&data_packet; //data transmitted
       nullnet_len = sizeof(data_packet); //length of data transmitted
       
