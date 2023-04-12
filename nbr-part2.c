@@ -37,7 +37,7 @@ linkaddr_t dest_addr;
 
 // WJ: link address = 0012.4b00.12b9.6687 = {{0x00, 0x12, 0x4b, 0x00, 0x12, 0xb9, 0x66, 0x87}}
 // CH: link address = 0012.4b00.1665.f587 = {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}}
-static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x12, 0xb9, 0x66, 0x87}}; // we use WJ's node as the one with light sensor
+static linkaddr_t light_addr = { {0x00, 0x12, 0x4b, 0x00, 0x12, 0xb9, 0x66, 0x87} }; // we use WJ's node as the one with light sensor
 
 
 #define NUM_SEND 2
@@ -46,7 +46,7 @@ typedef struct {
   unsigned long src_id;
   unsigned long timestamp;
   unsigned long seq;
-  
+
 } data_packet_struct;
 
 
@@ -86,7 +86,7 @@ static packet_store_struct current;
 static unsigned int counter = 0;
 
 // array to store sampling data
-static int light_data[10] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+static int light_data[10] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
 static int light_data_counter = 0;
 
 // Starts the main contiki neighbour discovery process
@@ -106,7 +106,7 @@ static void get_light_reading(void);
 
 /*---------------------------------------------------------------------------*/
 void
-do_rtimer_timeout(struct rtimer *timer, void *ptr)
+do_rtimer_timeout(struct rtimer* timer, void* ptr)
 {
   /* Re-arm rtimer. Starting up the sensor takes around 125ms */
   /* rtimer period 2s */
@@ -114,13 +114,13 @@ do_rtimer_timeout(struct rtimer *timer, void *ptr)
 
   rtimer_set(&timer_rtimer, RTIMER_NOW() + timeout_rtimer, 0, do_rtimer_timeout, NULL);
 
-  int s, ms1,ms2,ms3;
+  int s, ms1, ms2, ms3;
   s = clock_time() / CLOCK_SECOND;
-  ms1 = (clock_time()% CLOCK_SECOND)*10/CLOCK_SECOND;
-  ms2 = ((clock_time()% CLOCK_SECOND)*100/CLOCK_SECOND)%10;
-  ms3 = ((clock_time()% CLOCK_SECOND)*1000/CLOCK_SECOND)%10;
-  
-  printf(": %d (cnt) %ld (ticks) %d.%d%d%d (sec) \n",light_data_counter,clock_time(), s, ms1,ms2,ms3); 
+  ms1 = (clock_time() % CLOCK_SECOND) * 10 / CLOCK_SECOND;
+  ms2 = ((clock_time() % CLOCK_SECOND) * 100 / CLOCK_SECOND) % 10;
+  ms3 = ((clock_time() % CLOCK_SECOND) * 1000 / CLOCK_SECOND) % 10;
+
+  printf(": %d (cnt) %ld (ticks) %d.%d%d%d (sec) \n", light_data_counter, clock_time(), s, ms1, ms2, ms3);
   get_light_reading();
   light_data_counter++;
   if (light_data_counter != 0 && light_data_counter % 10 == 0) {
@@ -136,10 +136,11 @@ get_light_reading()
 {
   int value;
   value = opt_3001_sensor.value(0);
-  if(value != CC26XX_SENSOR_READING_ERROR) {
-    light_data[light_data_counter%10] = value;
+  if (value != CC26XX_SENSOR_READING_ERROR) {
+    light_data[light_data_counter % 10] = value;
     printf("OPT: Light=%d.%02d lux\n", value / 100, value % 100);
-  } else {
+  }
+  else {
     printf("OPT: Light Sensor's Warming Up\n\n");
   }
   init_opt_reading();
@@ -155,7 +156,7 @@ init_opt_reading(void)
 
 
 // Function called after reception of a packet
-void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest) 
+void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* src, const linkaddr_t* dest)
 {
 
   // const linkaddr_t *src gives us the source address of the received packet. we can use this
@@ -163,7 +164,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 
   // Check if the received packet size matches with what we expect it to be
 
-  if(len == sizeof(data_packet)) {
+  if (len == sizeof(data_packet)) {
 
     static data_packet_struct received_packet_data;
 
@@ -174,23 +175,24 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     unsigned long diff = 0;
     // Copy the content of packet into the data structure
     memcpy(&received_packet_data, data, len);
-    
+
 
     // Print the details of the received packet
     printf("========\n");
-    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI),received_packet_data.src_id);
+    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI), received_packet_data.src_id);
     printf("========\n");
 
-    printf("Current timestamp: %3lu.%03lu\n", curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+    printf("Current timestamp: %3lu.%03lu\n", curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND) * 1000) / CLOCK_SECOND);
     printf("========\n");
 
-    printf("Timestamp after accounting for offset: %3lu.%03lu\n", after_offset / CLOCK_SECOND, ((after_offset % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+    printf("Timestamp after accounting for offset: %3lu.%03lu\n", after_offset / CLOCK_SECOND, ((after_offset % CLOCK_SECOND) * 1000) / CLOCK_SECOND);
 
     if (prev_discovery_timestamp != -1) {
       diff = curr_timestamp - prev_discovery_timestamp;
-      printf("Time difference between current and last discovery: %3lu.%03lu\n", diff / CLOCK_SECOND, ((diff % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+      printf("Time difference between current and last discovery: %3lu.%03lu\n", diff / CLOCK_SECOND, ((diff % CLOCK_SECOND) * 1000) / CLOCK_SECOND);
       printf("========\n");
-    } else {
+    }
+    else {
       printf("This is the first discovery -- no previous one yet!\n");
       printf("========\n");
     }
@@ -211,9 +213,9 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         unsigned long id = storage[i].src_id;
         unsigned long recv_time = storage[i].recv_timestamp;
         unsigned long prev_time = storage[i].prev_timestamp;
-        printf("|   %d   |      %lu       |   %3lu.%03lu  |      %3lu.%03lu    |\n", i, id, 
-          recv_time / CLOCK_SECOND, ((recv_time % CLOCK_SECOND)*1000) / CLOCK_SECOND, 
-          prev_time / CLOCK_SECOND, ((prev_time % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+        printf("|   %d   |      %lu       |   %3lu.%03lu  |      %3lu.%03lu    |\n", i, id,
+          recv_time / CLOCK_SECOND, ((recv_time % CLOCK_SECOND) * 1000) / CLOCK_SECOND,
+          prev_time / CLOCK_SECOND, ((prev_time % CLOCK_SECOND) * 1000) / CLOCK_SECOND);
       }
     }
   }
@@ -221,60 +223,60 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 }
 
 // Scheduler function for the sender of neighbour discovery packets
-char sender_scheduler(struct rtimer *t, void *ptr) {
- 
+char sender_scheduler(struct rtimer* t, void* ptr) {
+
   static uint16_t i = 0;
-  
-  static int NumSleep=0;
- 
+
+  static int NumSleep = 0;
+
   // Begin the protothread
   PT_BEGIN(&pt);
 
   // Get the current time stamp
   curr_timestamp = clock_time();
 
-  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", curr_timestamp, curr_timestamp / CLOCK_SECOND, 
-  ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", curr_timestamp, curr_timestamp / CLOCK_SECOND,
+    ((curr_timestamp % CLOCK_SECOND) * 1000) / CLOCK_SECOND);
 
-  start_clock_time =  curr_timestamp;
-  
-  while(1){
+  start_clock_time = curr_timestamp;
+
+  while (1) {
 
     // radio on
     NETSTACK_RADIO.on();
 
     // send NUM_SEND number of neighbour discovery beacon packets
-    for(i = 0; i < NUM_SEND; i++){
+    for (i = 0; i < NUM_SEND; i++) {
 
-     
-       // Initialize the nullnet module with information of packet to be trasnmitted
-      nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+
+      // Initialize the nullnet module with information of packet to be trasnmitted
+      nullnet_buf = (uint8_t*)&data_packet; //data transmitted
       nullnet_len = sizeof(data_packet); //length of data transmitted
-      
+
       data_packet.seq++;
-      
+
       curr_timestamp = clock_time();
-      
+
       data_packet.timestamp = curr_timestamp;
 
       // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
       NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
-      
+
 
       // wait for WAKE_TIME before sending the next packet
-      if(i != (NUM_SEND - 1)){
+      if (i != (NUM_SEND - 1)) {
 
         rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
         PT_YIELD(&pt);
-      
+
       }
-   
+
     }
 
     // sleep for a random number of slots
-    if(SLEEP_CYCLE != 0){
-    
+    if (SLEEP_CYCLE != 0) {
+
       // radio off
       NETSTACK_RADIO.off();
 
@@ -283,20 +285,20 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 
       // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
       // the average is SLEEP_CYCLE 
-      NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
+      NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1);
 
       // uncomment if necessary -- probably not! 
       // printf(" Sleep for %d slots \n",NumSleep); 
 
       // NumSleep should be a constant or static int
-      for(i = 0; i < NumSleep; i++){
+      for (i = 0; i < NumSleep; i++) {
         rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
         PT_YIELD(&pt);
       }
 
     }
   }
-  
+
   PT_END(&pt);
 }
 
@@ -305,14 +307,14 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 PROCESS_THREAD(nbr_discovery_process, ev, data)
 {
 
- // static struct etimer periodic_timer;
+  // static struct etimer periodic_timer;
 
   PROCESS_BEGIN();
 
   // initialize data packet sent for neighbour discovery exchange
   data_packet.src_id = node_id; //Initialize the node ID
   data_packet.seq = 0; //Initialize the sequence number of the packet
-  
+
   nullnet_set_input_callback(receive_packet_callback); //initialize receiver callback
   linkaddr_copy(&dest_addr, &linkaddr_null);
 
@@ -321,13 +323,14 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
   printf("CC2650 neighbour discovery\n");
   printf("Node %d will be sending packet of size %d Bytes\n", node_id, (int)sizeof(data_packet_struct));
 
-  
+
   // if it is the light sensor node, keep collecting data very SAMPLING_INTERVAL
   // next: send current data on neighbour discovery?
   if (linkaddr_cmp(&light_addr, &linkaddr_node_addr)) {
     printf("============ This is the light sensing node\n\n ============");
     process_start(&process_light_sensor, NULL);
-  } else {
+  }
+  else {
     // Start sender in one millisecond.
     rtimer_set(&rt, RTIMER_NOW() + (RTIMER_SECOND / 1000), 1, (rtimer_callback_t)sender_scheduler, NULL);
   }
@@ -341,11 +344,11 @@ PROCESS_THREAD(process_light_sensor, ev, data)
   PROCESS_BEGIN();
   init_opt_reading();
 
-  printf(" The value of RTIMER_SECOND is %d \n",RTIMER_SECOND);
-  printf(" The value of timeout_rtimer is %ld \n",timeout_rtimer);
+  printf(" The value of RTIMER_SECOND is %d \n", RTIMER_SECOND);
+  printf(" The value of timeout_rtimer is %ld \n", timeout_rtimer);
 
-  while(1) {
-    rtimer_set(&timer_rtimer, RTIMER_NOW() + timeout_rtimer, 0,  do_rtimer_timeout, NULL);
+  while (1) {
+    rtimer_set(&timer_rtimer, RTIMER_NOW() + timeout_rtimer, 0, do_rtimer_timeout, NULL);
     PROCESS_YIELD();
   }
 
