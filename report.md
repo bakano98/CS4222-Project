@@ -73,59 +73,155 @@ Important: Please note that the two way latency is the time that it takes for no
 
 ## Findings: Part 1
 
-1. Using the default settings, observe and record how long the devices take to discover each other. Pick one of the devices as A and plot the cumulative distribution of the intervals between packet receptions on device A hearing from device B.
+1.  Using the default settings, observe and record how long the devices take to discover each other. Pick one of the devices as A and plot the cumulative distribution of the intervals between packet receptions on device A hearing from device B.
 
-   On the default settings. Will need to monitor A and B and check the FIRST packet received from each other.
-   The cumulative distribution of the intervals between packet reception on A hearing from B is as follows:
-   ![](./images/q1-graph.png)
+    On the default settings. Will need to monitor A and B and check the FIRST packet received from each other.
+    The cumulative distribution of the intervals between packet reception on A hearing from B is as follows:
+    <p align="center">
+        <img src="./images/q1-graph.png" /> </br>
+        <em> Figure 1: Cumulative distribution of intervals on default settings</em>
+    </p></br>
 
-   For this experiment, we performed repeated the experiment for a total of 50 times. The first packet discovered is not taken into account as the interval is 0. Thus, our dataset includes a total of 49 intervals. A total of 449 data packets were sent to A from B, during the 50 runs of the experiment.
+    For this experiment, we performed repeated the experiment for a total of 50 times. The first packet discovered is not taken into account as the interval is 0. Thus, our dataset includes a total of 49 intervals. A total of 449 data packets were sent to A from B, during the 50 runs of the experiment.
 
-   We plotted the cumulative distribution curve by splitting the dataset into intervals increasing by 1s (i.e. 0 - 1s, 0 - 2s... etc), then finding how many packets are received during those intervals.
+    We plotted the cumulative distribution curve by splitting the dataset into intervals increasing by 1s (i.e. 0 - 1s, 0 - 2s... etc), then finding how many packets are received during those intervals.
 
-   The average time for device A to discover B, according to our data is approximately 4.20s
+    The average time for device A to discover B, according to our data is approximately 4.20s, and the last packet received had a sequence number of 449.
 
-1. Reset device B and observe how long it takes for device A to hear from device B after device B reboots. You may need to modify the given code to observe this duration. Perform the experiments at least 10 times and plot the cumulative distribution.
+</br>
 
-   ![](./images/q2-graph.png)
-   The way the distirubtion curve was plotted is the same as in Question 1.
-   Modifications were made to the structure of the data packet. We added a new field, `startup_time` in order to append the time in which the device booted up and started sending the first packet.
+2.  Reset device B and observe how long it takes for device A to hear from device B after device B reboots. You may need to modify the given code to observe this duration. Perform the experiments at least 10 times and plot the cumulative distribution.
 
-   We performed the experiment 20 times (manually). Each time, we rebooted B, then printed to serial monitor the time it took to receive the packet from B, which is calculated as `timestamp` - `startup_time`.
+    <p align="center">
+        <img src="./images/q2-graph.png" /> </br>
+        <em> Figure 2: Cumulative distribution of intervals when B reboots</em>
+    </p></br>
 
-   The average time for device A to discover B after resetting, according to our data is approximately 4.08s
+    The way the distirubtion curve was plotted is the same as in Question 1.
+    Modifications were made to the structure of the data packet. We added a new field, `startup_time` in order to append the time in which the device booted up and started sending the first packet.
 
-1. Try out different settings and discuss your observations.
+    We performed the experiment 20 times (manually). Each time, we rebooted B, then printed to serial monitor the time it took to receive the packet from B, which is calculated as `timestamp` - `startup_time`.
 
-   1. Change wake time (WAKE_TIME)
-   1. Change sleep slot (SLEEP_SLOT)
-   1. Change sleep cycle (SLEEP_CYCLE)
+    The average time for device A to discover B after resetting, according to our data is approximately 4.08s
 
-   For this part of the experiment, we took the readings 50 times and took the average time to discover each other. In total, there are 49 intervals (50 data points but the first cannot be used as there is no interval before it).
+</br>
 
-   The different settings we used were as follows:
-   | Experiment Number | Setting | Average Time to Discovery (A discovers B) | Average Time to Discovery (B discovers A) | Last Packet Number (B -> A) | Last Packet Number (A -> B) |
-   | ------------------| ------- | ------------------------- | ------------------------| --- | -- |
-   | 1 | Change wake time to 0.05s (RTIMER_SECOND/20) | 12.300s | 11.860s | 1265 | 1249 |
-   | 2 | Change wake time to 0.2s (RTIMER/5) | 2.757s | 2.671s | 267 | 238 |
-   | 3 | Change sleep cycle to 5 | 1.945s | 2.031s | 322 | 403 |
-   | 4 | Change sleep slot to RTIMER_SECOND/12 | 3.976s | 4.015s | 485 | 473 |
+3.  Try out different settings and discuss your observations.
 
-   The cumulative distribution for each setting (a), (b) is as follows:
+    1. Change wake time (WAKE_TIME)
+    1. Change sleep slot (SLEEP_SLOT)
+    1. Change sleep cycle (SLEEP_CYCLE)
 
-   // will add the curves here
-   ![figure1]  
-   ![figure2]  
-   ![figure3]  
-   ... tbd
+    For this part of the experiment, we took the readings 50 times and took the average time to discover each other. In total, there are 49 intervals (50 data points but the first cannot be used as there is no interval before it).
 
-   When the wake time is decreased to 0.05s, the average time it takes for A to discover B and vice-versa is longer as shown in the table above.
-   This is because there is a smaller window for A to discover B even though more packets are being sent per second. With a shorter window for discovery, it is harder for discovery to occur.
-   When we increase the wake time to 0.2s, as expected, the average time taken for A to discover B is shorter. Even though less packets are being sent per second, the window in which A can discover a packet sent by B is larger (as A is active for a longer time) leading to better discovery of packets sent.
+    The different settings we used were as follows:
+    | Experiment Number | Setting | Average Time to Discovery (A discovers B) | Average Time to Discovery (B discovers A) | Last Packet Number (B -> A) | Last Packet Number (A -> B) |
+    | ------------------| ------- | ------------------------- | ------------------------| --- | -- |
+    | 1 | Change wake time to 0.05s (RTIMER_SECOND/20) | 12.300s | 11.860s | 1265 | 1249 |
+    | 2 | Change wake time to 0.2s (RTIMER/5) | 2.757s | 2.671s | 267 | 238 |
+    | 3 | Change sleep cycle to 5 | 1.945s | 2.031s | 322 | 403 |
+    | 4 | Change sleep slot to RTIMER_SECOND/12 | 3.976s | 4.015s | 485 | 473 |
 
-   When the sleep cycle is lowered to 5 (i.e. Tsleep is decreased because Tsleep = SLEEP_SLOT \* SLEEP_CYCLE), the amount of time it takes for A to discover B is shorter, and vice-versa. This is likely because both devices are more active and sending more packets with the same amount of WAKE_TIME to discover the sent packets. This is corroborated by the fact that the last packet received by A in Experiment 2 has a sequence number of 267, whereas the last packet received by A in Experiment 3 has a sequence number of 322 despite having a much lower average discovery time.
+    > Table 1: Summary of the experiments and their results
 
-   When the sleep slot is reduced, the amount of time it takes for A to discover B is also lesser. This is as expected, because similar to lowering the sleep cycles, both devices are more active overall and thus, more packets are being sent. Since more packets are being sent while maintaining the same receive window (as opposed to the first experiment where the window is reduced), it leads to lower average discovery time. More packets are evidently being sent when we compare the result of this experiment to the base experiment in Question 1 -- where the number of packets received is 449 despite having approximately the same average discovery time.
+    The graphs of packets received in an certain interval [X, Y] is shown below for each setting:
+
+    <p align="center">
+        <img src="./images/exp1.png" /> </br>
+        <em> Figure 3.1: Distribution of packets received against intervals for setting 1</em>
+    </p></br>
+
+    Figure 3.1 shows the distribution of packets received against intervals for the first setting. The table below shows the probability of receiving a packet within X seconds:
+
+    | Time (s) | Number of Packets Received | Probability of Reception |
+    | :------: | :------------------------: | ------------------------ |
+    |    10    |             29             | 29/49 = 0.591837         |
+    |    20    |             39             | 39/49 = 0.795918         |
+    |    30    |             45             | 45/49 = 0.918367         |
+    |    40    |             47             | 47/49 = 0.959184         |
+    |    50    |             47             | 47/49 = 0.959184         |
+    |    60    |             49             | 49/49 = 1                |
+
+    > Table 2: Summary of experiment 1 and the results
+
+    This experiment involved changing the wake time to 0.05s. When the wake time is decreased to 0.05s, the average time it takes for A to discover B and vice-versa is longer as shown in the table above.
+
+    This is because there is a smaller window for A to discover B even though more packets are being sent per second. With a shorter window for discovery, it is harder for discovery to occur.
+
+    ***
+
+    <p align="center">
+        <img src="./images/exp2.png" /> </br>
+        <em> Figure 3.2: Distribution of packets received against intervals for setting 2</em>
+    </p></br>
+
+    Figure 3.2 shows the distribution of packets received against intervals for the second setting.
+    The table below shows the probability of receiving a packet within X seconds:
+
+    | Time (s) | Number of Packets Received | Probability of Reception |
+    | :------: | :------------------------: | ------------------------ |
+    |    2     |             23             | 23/49 = 0.469388         |
+    |    4     |             39             | 39/49 = 0.795918         |
+    |    6     |             45             | 45/49 = 0.918367         |
+    |    8     |             47             | 47/49 = 0.959184         |
+    |    10    |             48             | 48/49 = 0.979592         |
+    |    12    |             49             | 49/49 = 1                |
+
+    > Table 3: Summary of experiment 2 and the results
+
+    The second experiment involved changing the wake time to 0.2s. This was to complement the findings from the previous experiment.
+
+    When the wake time was increased to 0.2s, as expected, the average time taken for A to discover B is shorter. Even though less packets are being sent per second, the window in which A can discover a packet sent by B is larger (as A is active for a longer time) leading to better discovery of packets sent.
+
+    ***
+
+    <p align="center">
+        <img src="./images/exp3.png" /> </br>
+        <em> Figure 3.3: Distribution of packets received against intervals for setting 3</em>
+    </p></br>
+
+    Figure 3.3 shows the distribution of packets received against intervals for the third setting.
+    The table below shows the probability of receiving a packet within X seconds:
+
+    | Time (s) | Number of Packets Received | Probability of Reception |
+    | :------: | :------------------------: | ------------------------ |
+    |    2     |             32             | 32/49 = 0.653061         |
+    |    4     |             40             | 40/49 = 0.816327         |
+    |    6     |             45             | 45/49 = 0.918367         |
+    |    8     |             48             | 48/49 = 0.979592         |
+    |    10    |             48             | 48/49 = 0.979592         |
+    |    12    |             49             | 49/49 = 1                |
+
+    > Table 4: Summary of experiment 3 and the results
+
+    The third experiment changed the sleep cycle to 5. This is lower than the default 9.
+
+    When the sleep cycle is lowered to 5 (i.e. Tsleep is decreased because Tsleep = SLEEP_SLOT \* SLEEP_CYCLE), the amount of time it takes for A to discover B is shorter, and vice-versa. This is likely because both devices are more active and sending more packets with the same amount of WAKE_TIME to discover the sent packets.
+
+    This is corroborated by the fact that the last packet received by A in Experiment 2 has a sequence number of 267 (see Table 1), whereas the last packet received by A in Experiment 3 has a sequence number of 322 despite having a much lower average discovery time.
+
+    <p align="center">
+        <img src="./images/exp4.png" /> </br>
+        <em> Figure 3.4: Distribution of packets received against intervals for setting 4</em>
+    </p></br>
+
+    Figure 3.4 shows the distribution of packets received against intervals for the fourth setting.
+    The table below shows the probability of receiving a packet within X seconds:
+
+    | Time (s) | Number of Packets Received | Probability of Reception |
+    | :------: | :------------------------: | ------------------------ |
+    |    3     |             26             | 26/49 = 0.530612         |
+    |    6     |             39             | 39/49 = 0.795918         |
+    |    9     |             42             | 42/49 = 0.857143         |
+    |    12    |             45             | 45/49 = 0.918367         |
+    |    15    |             48             | 48/49 = 0.979592         |
+    |    18    |             49             | 49/49 = 1                |
+
+    > Table 5: Summary of experiment 4 and the results
+
+    The fourth (and last) experiment conducted involved reducing the sleep slot. When the sleep slot is reduced, the amount of time it takes for A to discover B is also lesser.
+
+    This is as expected, because similar to lowering the sleep cycles, both devices are more active overall and thus, more packets are being sent. Since more packets are being sent while maintaining the same receive window (as opposed to the first experiment where the window is reduced), it leads to lower average discovery time. More packets are evidently being sent when we compare the result of this experiment to the base experiment in Question 1 -- where the number of packets received is 449 despite having approximately the same average discovery time.
 
 ---
 
