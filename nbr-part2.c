@@ -38,6 +38,7 @@ linkaddr_t dest_addr;
 // CH: link address = 0012.4b00.1665.f587 = {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}}
 static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}}; // we use CH's node as the one with light sensor
 
+static int prev_sample_time = -1;
 
 #define NUM_SEND 2
 /*---------------------------------------------------------------------------*/
@@ -73,6 +74,7 @@ static struct rtimer rt;
 
 // Protothread variable
 static struct pt pt;
+static struct pt light_pt;
 
 // Structure holding the data to be transmitted
 static data_packet_struct data_packet;
@@ -102,39 +104,40 @@ static int node_counter = 0;
 
 // Starts the main contiki neighbour discovery process
 PROCESS(nbr_discovery_process, "cc2650 neighbour discovery process");
-PROCESS(process_light_sensor, "light sensor");
+// PROCESS(process_light_sensor, "light sensor");
 AUTOSTART_PROCESSES(&nbr_discovery_process);
 
 
 /*========================start light sensor stuff========================*/
 
-static struct rtimer timer_rtimer;
-static rtimer_clock_t timeout_rtimer = SAMPLING_INTERVAL;
+// static struct rtimer timer_rtimer;
+// static rtimer_clock_t timeout_rtimer = SAMPLING_INTERVAL;
 
 /*---------------------------------------------------------------------------*/
 static void init_opt_reading(void);
 static void get_light_reading(void);
 char schedule_sleep(struct rtimer *t, void *ptr);
 /*---------------------------------------------------------------------------*/
-void
-do_rtimer_timeout(struct rtimer *timer, void *ptr)
-{
-  /* Re-arm rtimer. Starting up the sensor takes around 125ms */
-  /* rtimer period 2s */
-  // clock_time_t t;
+// void
+// do_rtimer_timeout(struct rtimer *timer, void *ptr)
+// {
+//   /* Re-arm rtimer. Starting up the sensor takes around 125ms */
+//   /* rtimer period 2s */
+//   // clock_time_t t;
 
-  rtimer_set(&timer_rtimer, RTIMER_NOW() + timeout_rtimer, 0, do_rtimer_timeout, NULL);
+//   // light-sensing routine
+//   rtimer_set(&timer_rtimer, RTIMER_NOW() + timeout_rtimer, 0, do_rtimer_timeout, NULL);
 
-  int s, ms1,ms2,ms3;
-  s = clock_time() / CLOCK_SECOND;
-  ms1 = (clock_time()% CLOCK_SECOND)*10/CLOCK_SECOND;
-  ms2 = ((clock_time()% CLOCK_SECOND)*100/CLOCK_SECOND)%10;
-  ms3 = ((clock_time()% CLOCK_SECOND)*1000/CLOCK_SECOND)%10;
+
+//   int s, ms1,ms2,ms3;
+//   s = clock_time() / CLOCK_SECOND;
+//   ms1 = (clock_time()% CLOCK_SECOND)*10/CLOCK_SECOND;
+//   ms2 = ((clock_time()% CLOCK_SECOND)*100/CLOCK_SECOND)%10;
+//   ms3 = ((clock_time()% CLOCK_SECOND)*1000/CLOCK_SECOND)%10;
   
-  printf(": %d (cnt) %ld (ticks) %d.%d%d%d (sec) \n",light_data_counter,clock_time(), s, ms1,ms2,ms3); 
-  get_light_reading();
-  light_data_counter++;
-}
+//   printf(": %d (cnt) %ld (ticks) %d.%d%d%d (sec) \n",light_data_counter,clock_time(), s, ms1,ms2,ms3); 
+//   get_light_reading();
+// }
 
 static void
 get_light_reading()
@@ -148,6 +151,7 @@ get_light_reading()
     printf("OPT: Light Sensor's Warming Up\n\n");
   }
   init_opt_reading();
+  light_data_counter++;
 }
 
 static void
@@ -282,56 +286,65 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 }
 
 // // this is the sleeping function for 
-// char schedule_sleep(struct rtimer *t, void *ptr) {
-//   printf("Schedule sleep for receive\n");
-//   PT_BEGIN(&light_pt);
-//   static int NumSleep=0;
-//   static int i = 0;
-//   while (1) {
-//     if(SLEEP_CYCLE != 0){
-    
-//       // radio off
-//       NETSTACK_RADIO.on();
+char schedule_sleep(struct rtimer *t, void *ptr) {
+  // printf("Schedule sleep for receiver\n");
+  PT_BEGIN(&light_pt);
+  static int i = 0;
+  static int j;
+  while (1) {
 
-//       // SLEEP_SLOT cannot be too large as value will overflow,
-//       // to have a large sleep interval, sleep many times instead
+    NETSTACK_RADIO.on();
 
-//       // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
-//       // the average is SLEEP_CYCLE 
-//       NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
-
-//       // uncomment if necessary -- probably not! 
-//       // printf(" Sleep for %d slots \n",NumSleep); 
-
-//       // NumSleep should be a constant or static int
-//       for(i = 0; i < NumSleep*2; i++){
-//         rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
-//         PT_YIELD(&light_pt);
-//       }
-
-//     }
-
-//     // sleep for a random number of slots
-//     if(SLEEP_CYCLE != 0){
+    // stay awake for 0.1s
+    for(i = 0; i < NUM_SEND; i++){
+      // nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+      // nullnet_len = sizeof(data_packet); //length of data transmitted
       
-//       // radio off
-//       NETSTACK_RADIO.off();
-//       // SLEEP_SLOT cannot be too large as value will overflow,
-//       // to have a large sleep interval, sleep many times instead
+      // data_packet.seq++;
+      // data_packet.startup_time = start_first_packet;
+      // curr_timestamp = clock_time();
+      
+      // data_packet.timestamp = curr_timestamp;
 
-//       // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
-//       // the average is SLEEP_CYCLE 
-//       NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
+      // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
-//       printf(" Sleep for %d slots \n",NumSleep); 
+      // no need to send
+      
+      // wait for WAKE_TIME before going into sleep routine
+      if(i != (NUM_SEND - 1)){
 
-//       // NumSleep should be a constant or static int
-//       for(i = 0; i < NumSleep*2; i++){
-//         rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
-//         PT_YIELD(&light_pt);
-//       }
-//     }
-//   }
+        rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)schedule_sleep, ptr);
+        PT_YIELD(&light_pt);
+      
+      }
+   
+    }
+
+    // sleep for 9 slots
+    NETSTACK_RADIO.off();
+    for (j = 9; j > 0; j--) {
+      // printf(" Sleep for 9 slots first before going into NEXT routine\n");
+      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
+      PT_YIELD(&light_pt);
+    }
+    printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
+
+    if (prev_sample_time == -1) {
+      printf("Collecting first light reading\n");
+      get_light_reading();
+      prev_sample_time = RTIMER_NOW();
+    }
+
+    if (RTIMER_NOW() - prev_sample_time  >= SAMPLING_INTERVAL) {
+      printf("Interval reached, collecting reading\n");
+      get_light_reading();
+      prev_sample_time = RTIMER_NOW();
+    }
+
+  }
+
+  PT_END(&light_pt);
+}
 
 //   printf("Sleep time over\n");
 //   PT_END(&light_pt);
@@ -438,7 +451,8 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
   // if it is the light sensor node, keep collecting data very SAMPLING_INTERVAL
   if (linkaddr_cmp(&light_addr, &linkaddr_node_addr)) {
     printf("============ This is the light sensing node ============\n\n");
-    process_start(&process_light_sensor, NULL);
+    init_opt_reading();
+    rtimer_set(&rt, RTIMER_NOW() + RTIMER_SECOND, 1,  (rtimer_callback_t)schedule_sleep, NULL);
   } else {
     // Start sender in one millisecond.
     rtimer_set(&rt, RTIMER_NOW() + (RTIMER_SECOND / 1000), 1, (rtimer_callback_t)sender_scheduler, NULL);
@@ -448,19 +462,19 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
 }
 
 
-PROCESS_THREAD(process_light_sensor, ev, data)
-{
-  PROCESS_BEGIN();
-  init_opt_reading();
+// PROCESS_THREAD(process_light_sensor, ev, data)
+// {
+//   PROCESS_BEGIN();
+//   init_opt_reading();
 
-  printf(" The value of RTIMER_SECOND is %d \n",RTIMER_SECOND);
-  printf(" The value of timeout_rtimer is %ld \n",timeout_rtimer);
+//   printf(" The value of RTIMER_SECOND is %d \n",RTIMER_SECOND);
+//   printf(" The value of timeout_rtimer is %ld \n",timeout_rtimer);
 
-  while(1) {
-    rtimer_set(&timer_rtimer, RTIMER_NOW() + timeout_rtimer, 1,  do_rtimer_timeout, NULL);
-    // rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND, 1, (rtimer_callback_t)schedule_sleep, NULL);
-    PROCESS_YIELD();
-  }
+//   while(1) {
+//     rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND / 1000, 1,  (rtimer_callback_t)schedule_sleep, NULL);
+//     // rtimer_set(&timer_rtimer, RTIMER_NOW() + RTIMER_SECOND, 1, (rtimer_callback_t)schedule_sleep, NULL);
+//     PROCESS_YIELD();
+//   }
 
-  PROCESS_END();
-}
+//   PROCESS_END();
+// }
