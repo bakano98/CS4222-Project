@@ -73,7 +73,6 @@ static struct rtimer rt;
 
 // Protothread variable
 static struct pt pt;
-static struct pt light_pt;
 
 // Structure holding the data to be transmitted
 static data_packet_struct data_packet;
