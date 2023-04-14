@@ -1,4 +1,4 @@
-CONTIKI_PROJECT = nbr
+CONTIKI_PROJECT = nbr nbr-part2-slave nbr-part2-master
 all: $(CONTIKI_PROJECT)
 
 CONTIKI = ../..
