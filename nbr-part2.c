@@ -16,7 +16,6 @@
 #include <stdint.h>
 #include "sys/rtimer.h"
 
-
 #include "sys/log.h"
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_INFO
@@ -193,7 +192,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     memcpy(&received_packet_data, data, len);
     signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
 
-    // printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
+    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
 
     if (recv_rssi > -65) {
       in_proximity = 1;
@@ -283,68 +282,70 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 
 }
 
-char schedule_sleep(struct rtimer *t, void *ptr) {
-  printf("Schedule sleep for receive\n");
-  PT_BEGIN(&light_pt);
-  static int NumSleep=0;
-  static int i = 0;
-  while (1) {
-    if(SLEEP_CYCLE != 0){
+// // this is the sleeping function for 
+// char schedule_sleep(struct rtimer *t, void *ptr) {
+//   printf("Schedule sleep for receive\n");
+//   PT_BEGIN(&light_pt);
+//   static int NumSleep=0;
+//   static int i = 0;
+//   while (1) {
+//     if(SLEEP_CYCLE != 0){
     
-      // radio off
-      NETSTACK_RADIO.on();
+//       // radio off
+//       NETSTACK_RADIO.on();
 
-      // SLEEP_SLOT cannot be too large as value will overflow,
-      // to have a large sleep interval, sleep many times instead
+//       // SLEEP_SLOT cannot be too large as value will overflow,
+//       // to have a large sleep interval, sleep many times instead
 
-      // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
-      // the average is SLEEP_CYCLE 
-      NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
+//       // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
+//       // the average is SLEEP_CYCLE 
+//       NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
 
-      // uncomment if necessary -- probably not! 
-      // printf(" Sleep for %d slots \n",NumSleep); 
+//       // uncomment if necessary -- probably not! 
+//       // printf(" Sleep for %d slots \n",NumSleep); 
 
-      // NumSleep should be a constant or static int
-      for(i = 0; i < NumSleep*2; i++){
-        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
-        PT_YIELD(&light_pt);
-      }
+//       // NumSleep should be a constant or static int
+//       for(i = 0; i < NumSleep*2; i++){
+//         rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
+//         PT_YIELD(&light_pt);
+//       }
 
-    }
+//     }
 
-    // sleep for a random number of slots
-    if(SLEEP_CYCLE != 0){
+//     // sleep for a random number of slots
+//     if(SLEEP_CYCLE != 0){
       
-      // radio off
-      NETSTACK_RADIO.off();
-      // SLEEP_SLOT cannot be too large as value will overflow,
-      // to have a large sleep interval, sleep many times instead
+//       // radio off
+//       NETSTACK_RADIO.off();
+//       // SLEEP_SLOT cannot be too large as value will overflow,
+//       // to have a large sleep interval, sleep many times instead
 
-      // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
-      // the average is SLEEP_CYCLE 
-      NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
+//       // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
+//       // the average is SLEEP_CYCLE 
+//       NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
 
-      printf(" Sleep for %d slots \n",NumSleep); 
+//       printf(" Sleep for %d slots \n",NumSleep); 
 
-      // NumSleep should be a constant or static int
-      for(i = 0; i < NumSleep*2; i++){
-        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
-        PT_YIELD(&light_pt);
-      }
-    }
-  }
+//       // NumSleep should be a constant or static int
+//       for(i = 0; i < NumSleep*2; i++){
+//         rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
+//         PT_YIELD(&light_pt);
+//       }
+//     }
+//   }
 
-  printf("Sleep time over\n");
-  PT_END(&light_pt);
-}
+//   printf("Sleep time over\n");
+//   PT_END(&light_pt);
+// }
 
 // Scheduler function for the sender of neighbour discovery packets
 char sender_scheduler(struct rtimer *t, void *ptr) {
  
   static uint16_t i = 0;
-  
-  static int NumSleep=0;
- 
+  static int sleep_counter = 0;
+  static int sc;
+  static int j;
+  static int info;
   // Begin the protothread
   PT_BEGIN(&pt);
 
@@ -356,7 +357,15 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 
   start_clock_time =  curr_timestamp;
   
+  // total sleep for 0.9s, wake for 0.1s in a 1s period
   while(1){
+    sc = sleep_counter % 9;
+    NETSTACK_RADIO.off();
+    for (j = 0; j < sc; j++) {
+      printf(" Sleep for %d slots first before doing SEND routine\n", sc);
+      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
+      PT_YIELD(&pt);
+    }
 
     // radio on
     NETSTACK_RADIO.on();
@@ -377,7 +386,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 
       // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
-      NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
+      NETSTACK_NETWORK.output(&light_addr); //Packet transmission
       
 
       // wait for WAKE_TIME before sending the next packet
@@ -390,30 +399,17 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
    
     }
 
-    // sleep for a random number of slots
-    if(SLEEP_CYCLE != 0){
-    
-      // radio off
-      NETSTACK_RADIO.off();
-
-      // SLEEP_SLOT cannot be too large as value will overflow,
-      // to have a large sleep interval, sleep many times instead
-
-      // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
-      // the average is SLEEP_CYCLE 
-      NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1); 
-
-      // uncomment if necessary -- probably not! 
-      // printf(" Sleep for %d slots \n",NumSleep); 
-
-      // NumSleep should be a constant or static int
-      for(i = 0; i < NumSleep; i++){
-        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-        PT_YIELD(&pt);
-      }
-
+    NETSTACK_RADIO.off();
+    info = 9 - sc;
+    for (j = 9 - sc; j > 0; j--) {
+      printf(" Sleep for %d slots first before going into NEXT routine\n", info);
+      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
+      PT_YIELD(&pt);
     }
+    sleep_counter++;
+    printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
   }
+  
   
   PT_END(&pt);
 }
@@ -441,7 +437,6 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
 
   
   // if it is the light sensor node, keep collecting data very SAMPLING_INTERVAL
-  // next: send current data on neighbour discovery?
   if (linkaddr_cmp(&light_addr, &linkaddr_node_addr)) {
     printf("============ This is the light sensing node ============\n\n");
     process_start(&process_light_sensor, NULL);
