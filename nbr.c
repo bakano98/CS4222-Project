@@ -17,14 +17,17 @@
 
 
 // Configures the wake-up timer for neighbour discovery 
-#define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
-#define SLEEP_CYCLE  9        	      // 0 for never sleep
-#define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
+#define DISCOVER_WITHIN 10*RTIMER_SECOND
+#define N 10
+#define SLOT_TIME DISCOVER_WITHIN/(N*N)
 
 #define NUM_DATA 50 // modify this to increase the number of experiments -- minimum is 10.
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
 linkaddr_t dest_addr;
+
+// To store the result of get_param
+static radio_value_t value;
 
 #define NUM_SEND 2
 /*---------------------------------------------------------------------------*/
@@ -161,12 +164,15 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
 // Scheduler function for the sender of neighbour discovery packets
 char sender_scheduler(struct rtimer* t, void* ptr) {
 
-  static uint16_t i = 0;
-
-  static int NumSleep = 0;
+  static int row = 0;
+  static int col = 0;
+  static int curr_slot = 0;
 
   // Begin the protothread
   PT_BEGIN(&pt);
+
+  row = random_rand() % N;
+  col = random_rand() % N;
 
   // Get the current time stamp
   curr_timestamp = clock_time();
@@ -178,16 +184,13 @@ char sender_scheduler(struct rtimer* t, void* ptr) {
   }
   start_clock_time = curr_timestamp;
 
-  while (1) {
-
-    // radio on
-    NETSTACK_RADIO.on();
-
-    // send NUM_SEND number of neighbour discovery beacon packets
-    for (i = 0; i < NUM_SEND; i++) {
-
-
-      // Initialize the nullnet module with information of packet to be trasnmitted
+  while(1) {
+    NETSTACK_RADIO.get_value(RADIO_PARAM_POWER_MODE, &value);
+    printf("Current network status: %s\n", value == RADIO_POWER_MODE_OFF ? "off" : "on");
+    if (curr_slot % N == col || (curr_slot / N) % N == row) {
+      if (value == RADIO_POWER_MODE_OFF){
+        NETSTACK_RADIO.on();
+      }
       nullnet_buf = (uint8_t*)&data_packet; //data transmitted
       nullnet_len = sizeof(data_packet); //length of data transmitted
 
@@ -196,46 +199,29 @@ char sender_scheduler(struct rtimer* t, void* ptr) {
       curr_timestamp = clock_time();
 
       data_packet.timestamp = curr_timestamp;
+      NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
 
-      // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+      rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
+      PT_YIELD(&pt);
 
+      data_packet.seq++;
+      data_packet.startup_time = start_first_packet;
+      curr_timestamp = clock_time();
+
+      data_packet.timestamp = curr_timestamp;
       NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
 
 
-      // wait for WAKE_TIME before sending the next packet. Total will send 3 packets
-      // once at the start, middle, and end.
-      if (i != (NUM_SEND - 1)) {
-
-        rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
-        PT_YIELD(&pt);
-
+    } else {
+      if (value == RADIO_POWER_MODE_ON){
+        NETSTACK_RADIO.off();
       }
 
+      rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
+      PT_YIELD(&pt);
     }
 
-    // sleep for a random number of slots
-    if (SLEEP_CYCLE != 0) {
-
-      // radio off
-      NETSTACK_RADIO.off();
-
-      // SLEEP_SLOT cannot be too large as value will overflow,
-      // to have a large sleep interval, sleep many times instead
-
-      // get a value that is uniformly distributed between 0 and 2*SLEEP_CYCLE
-      // the average is SLEEP_CYCLE 
-      NumSleep = random_rand() % (2 * SLEEP_CYCLE + 1);
-
-      // uncomment if necessary -- probably not! 
-      // printf(" Sleep for %d slots \n",NumSleep); 
-
-      // NumSleep should be a constant or static int
-      for (i = 0; i < NumSleep; i++) {
-        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-        PT_YIELD(&pt);
-      }
-
-    }
+    curr_slot = (curr_slot + 1) % (N*N);
   }
 
   PT_END(&pt);
