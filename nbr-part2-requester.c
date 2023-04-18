@@ -213,17 +213,19 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
   static int sleep_counter = 0;
   static int sc;
   static int j;
+  static unsigned long scheduler_curr_timestamp;
   // static int info;
   // Begin the protothread
+
+  //take curr_time after each rtimer callback
+  scheduler_curr_timestamp = clock_time();
   PT_BEGIN(&pt);
 
-  // Get the current time stamp
-  curr_timestamp = clock_time();
 
-  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", curr_timestamp, curr_timestamp / CLOCK_SECOND, 
-  ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", scheduler_curr_timestamp, scheduler_curr_timestamp / CLOCK_SECOND, 
+  ((scheduler_curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
-  start_clock_time =  curr_timestamp;
+  start_clock_time =  scheduler_curr_timestamp;
   
   // total sleep for 0.9s, wake for 0.1s in a 1s period
   NETSTACK_RADIO.off();
@@ -250,8 +252,8 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
         data_packet.seq = seq;
         seq++;
       }
-      curr_timestamp = clock_time();
-      data_packet.timestamp = curr_timestamp;
+
+      data_packet.timestamp = scheduler_curr_timestamp;
 
       // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
       NETSTACK_NETWORK.output(&light_addr); //Packet transmission
@@ -325,7 +327,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       sleep_counter++; 
     }
 
-    unsigned long time_diff = clock_time() - prev_discovery_timestamp;
+    unsigned long time_diff = scheduler_curr_timestamp - prev_discovery_timestamp;
 
     if (time_diff/CLOCK_SECOND > 5) { //maybe somehow got out of sync
       sync_flag = FALSE;
