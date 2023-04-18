@@ -119,14 +119,14 @@ static void get_light_reading(void);
 char schedule_sleep(struct rtimer *t, void *ptr);
 static float get_average_rssi();
 static void clear_rssi_values();
-// static void clear_node_mem_map();
+static void clear_node_mem_map();
 /*---------------------------------------------------------------------------*/
 
-// static void clear_node_mem_map() {
-//   for (int i = 0; i < MAX_NODES; i++) {
-//     node_mem_map[i] = FALSE;
-//   }
-// }
+static void clear_node_mem_map() {
+  for (int i = 0; i < MAX_NODES; i++) {
+    node_mem_map[i] = FALSE;
+  }
+}
 
 static float get_average_rssi(short *rssi_values) {
   int num_valid_rssi = 0;
@@ -347,7 +347,7 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
  // static struct etimer periodic_timer;
 
   PROCESS_BEGIN();
-
+  clear_node_mem_map();
   data_packet.src_id = node_id; //Initialize the node ID
   data_packet.seq = 0; //Initialize the sequence number of the packet
   
