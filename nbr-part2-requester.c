@@ -21,6 +21,8 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 #define TRUE 1
 #define FALSE 0
+#define DETECT 1
+#define ABSENT 0
 
 // Configures the wake-up timer for neighbour discovery 
 #define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
@@ -119,6 +121,8 @@ unsigned long prev_discovery_timestamp = -1;
 //struct holding information about node we have connected with
 static packet_store_struct slave_info;
 
+static bool state = ABSENT;
+
 
 // Starts the main contiki neighbour discovery process
 PROCESS(nbr_discovery_process, "cc2650 neighbour discovery process");
@@ -155,16 +159,16 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     slave_info.rssi_values[slave_info.rssi_ptr] = recv_rssi;
     slave_info.rssi_ptr = (slave_info.rssi_ptr + 1) % RSSI_WINDOW;
 
-    if (get_average_rssi(slave_info.rssi_values) > -65) {
+    if (get_average_rssi(slave_info.rssi_values) > -65) { //in proximity
       if (slave_info.in_proximity_since == -1) {
         slave_info.in_proximity_since = curr_timestamp;
         slave_info.out_of_prox_since = -1;
       } 
 
       unsigned long time_diff = curr_timestamp - slave_info.in_proximity_since;
-      if (time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+      if (state != DETECT && time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
         printf("%3lu.%03lu DETECT %ld\n", slave_info.in_proximity_since / CLOCK_SECOND, ((slave_info.in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
-        req_flag = has_sent == FALSE ? TRUE : FALSE;
+        state = DETECT;        
       } 
     } else {
       if (slave_info.out_of_prox_since == -1) {
@@ -172,11 +176,12 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         slave_info.in_proximity_since = -1;
       } 
       unsigned long time_diff = curr_timestamp - slave_info.out_of_prox_since;
-      if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
+      if (state != ABSENT && time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
         printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
         slave_info.src_id = -1;
         req_flag = FALSE;
         has_sent = FALSE;
+        state = ABSENT;
       }       
     }
 
