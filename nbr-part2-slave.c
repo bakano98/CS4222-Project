@@ -1,6 +1,6 @@
 /*
 * CS4222/5422: Group Project
-* Slave Node. This is the node that performs the light sensing
+* Slave Node. This is the node that performs the light sensing.
 */
 
 #include "contiki.h"
@@ -19,7 +19,8 @@
 #include "sys/log.h"
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_INFO
-// Identification information of the node
+#define TRUE 1
+#define FALSE 0
 
 
 // Configures the wake-up timer for neighbour discovery 
@@ -39,6 +40,7 @@ linkaddr_t dest_addr;
 
 static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}}; // modify this to change the light-sensing node
 
+static int sync_flag = FALSE;
 static int prev_sample_time = -1;
 
 #define NUM_SEND 2
@@ -116,26 +118,6 @@ static void init_opt_reading(void);
 static void get_light_reading(void);
 char schedule_sleep(struct rtimer *t, void *ptr);
 /*---------------------------------------------------------------------------*/
-// void
-// do_rtimer_timeout(struct rtimer *timer, void *ptr)
-// {
-//   /* Re-arm rtimer. Starting up the sensor takes around 125ms */
-//   /* rtimer period 2s */
-//   // clock_time_t t;
-
-//   // light-sensing routine
-//   rtimer_set(&timer_rtimer, RTIMER_NOW() + timeout_rtimer, 0, do_rtimer_timeout, NULL);
-
-
-//   int s, ms1,ms2,ms3;
-//   s = clock_time() / CLOCK_SECOND;
-//   ms1 = (clock_time()% CLOCK_SECOND)*10/CLOCK_SECOND;
-//   ms2 = ((clock_time()% CLOCK_SECOND)*100/CLOCK_SECOND)%10;
-//   ms3 = ((clock_time()% CLOCK_SECOND)*1000/CLOCK_SECOND)%10;
-  
-//   printf(": %d (cnt) %ld (ticks) %d.%d%d%d (sec) \n",light_data_counter,clock_time(), s, ms1,ms2,ms3); 
-//   get_light_reading();
-// }
 
 static void
 get_light_reading()
@@ -194,8 +176,18 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     // Copy the content of packet into the data structure
     memcpy(&received_packet_data, data, len);
     signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
-
     printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
+
+    if (!sync_flag) {
+      data_packet_struct temp;
+      nullnet_buf = (uint8_t *)&temp; //data transmitted
+      nullnet_len = sizeof(temp); //length of data transmitted
+      temp.seq = -1; // to show synchronisation packet
+      curr_timestamp = clock_time();
+      temp.timestamp = curr_timestamp;
+      NETSTACK_NETWORK.output(src); //Packet transmission
+      sync_flag = TRUE;
+    }
 
     if (recv_rssi > -65) {
       in_proximity = 1;
@@ -348,12 +340,6 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
   nullnet_set_input_callback(receive_packet_callback); //initialize receiver callback
   linkaddr_copy(&dest_addr, &linkaddr_null);
 
-
-
-  printf("CC2650 neighbour discovery\n");
-  printf("Node %d will be sending packet of size %d Bytes\n", node_id, (int)sizeof(data_packet_struct));
-
-  
   // if it is the light sensor node, keep collecting data very SAMPLING_INTERVAL
   if (linkaddr_cmp(&light_addr, &linkaddr_node_addr)) {
     printf("============ This is the light sensing node ============\n\n");
