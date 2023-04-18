@@ -141,11 +141,11 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     memcpy(&received_packet_data, data, len);
     printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
 
-    // if (received_packet_data.seq % 2 != 0) {
-    //   printf("Attempting to sync\n");
-    //   sync_flag = TRUE;
-    //   printf("Set sync flag\n");
-    // }
+    if (!sync_flag && received_packet_data.seq % 2 != 0) {
+      printf("Attempting to sync\n");
+      sync_flag = TRUE;
+      printf("Set sync flag\n");
+    }
 
     if (received_packet_data.src_id != slave_info.src_id) { //new slave detected
       slave_info.src_id = received_packet_data.src_id;
@@ -317,6 +317,12 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
     if (!sync_flag) {
       sleep_counter++; 
     }
+
+    if (clock_time() - prev_discovery_timestamp > 5) { //maybe somehow got out of sync
+      sync_flag = FALSE;
+    }
+
+
   }
   PT_END(&pt);
 }
