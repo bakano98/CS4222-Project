@@ -271,34 +271,61 @@ Finally, after the node has been successfully detected, also print the light sen
 
 ## Findings: Part 2
 
-The algorithm implemented to ensure node discovery is different from the one in Task 1.
+The algorithm implemented to ensure node discovery is different from the one we have described in Task 1.
 
-For Task 2, since the architecture is many-to-one (where the one is the light sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the SENDER and the SensorTags as the REQUESTER (request for data). 
+For Task 2, since the architecture is many-to-one (where the one is the light-sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the **SENDER** and the SensorTags as the **REQUESTER** (request for data). 
 
+Furthermore, due to the amount of information that needs to be kept track of by the **SENDER**, we created a custom struct, `packet_store_struct` to include the following:
+1. Source node ID, `src_id`
+2. Time when it first received a packet within 3m, `in_proximity_since`
+3. Time when it first received a packet further than 3m, `out_of_prox_since`
+4. An array to store the past 5 RSSI values, `rssi_values`
+5. A pointer to keep track of the index, `rssi_ptr`
 
 ### Neighbour Discovery Logic
 
-Given the asymmetrical roles of the devices, the neighbour discovery algorithm used here is also different from part 1. Both SENDER and REQUESTER devices implement different algorithms to achieve neighbour discovery within 10 seconds and has a duty cycle of 10%.
+Given the asymmetrical roles of the devices, the neighbour discovery algorithm used here is also different from Part 1. Both **SENDER** and **REQUESTER** devices implement different algorithms to achieve neighbour discovery within 10 seconds and has a duty cycle of 10%.
 
 In our case, each cycle lasts 1 second, and our nodes are guaranteed to discover each other within 10 cycles.
 
 #### **SENDER**
 
-Each cycle is segmented into 10 slots, and the sender wakes up the radio for the first slot, before going to sleep for the remaining 9 slots.
+Each cycle is segmented into 10 slots. The sender will alway wake up the radio for the first slot, before going to sleep for the remaining 9 slots.
 
 #### **REQUESTER**
 
-Likewise, each cycle is segmented into 10 slots. The requester begins keeping the radio awake for a randomly chosen initial starting slot `i`, where 0 <= i <= 0, and turns the radio off for the remaining 9 slots. If there is no detection within this cycle, the requester will pick slot `i = i+1 mod 10` for the next cycle to stay awake. 
+Likewise, each cycle is segmented into 10 slots. For this algorithm, we introduce a variable `i` to stagger when the radio should wake up. When the requester first starts up, it turns on the radio at the very first slot, then sleeps for the remaining 9 slots. `i` is increment by 1, staggering the radio wake slot to be the second slot.
 
-Once there is detection and is within proximity, the requester will stop incrementing `i` and stay on that slot for each cycle, ensuring its wake period will coincide with the light sensing node.
+Consequently, `i` is incremented, and the radio wake slot is pushed again, until eventually it resets back to the very first slot. This algorithm is described aptly by the figure below:  
+<p align="center">
+    <img src="./images/algo.jpg" /> </br>
+    <em> Figure X: Description of Algorithm </em>
+</p>
 
+The above algorithm ensures that the SENDER and REQUESTER will eventually find each other within a deterministic 10s (or 10 cycles), while reducing the duty cycle to 10% (from a previous 19%).
 
 ### Logic for proximity detection
 
-Proximity detection and distance ranging is based on RSSI values. If a device is out of proximity, the received RSSI strength will be lower.
+Proximity detection and distance ranging is based on RSSI values. If a device is out of proximity, the received RSSI will be lower.
 
 Using RSSI, we can estimate the distance between two nodes and determine if they are out of proximity. Using the values found in Assignment 3, the average RSSI reading at 3 meters is `-65 dBm`. 
 
-To ensure a more robust measurement of proximity, we keep track of the last 5 RSSI values received, and take the average of the values. If the average RSSI is stronger than `-65 dBm`, we consider it in proximity. Since there is only 1 sender, each requester node will keep track of the last 5 RSSI values it received from the sender. For the sender node, it will keep track of 5 RSSI values per requester node that it detects.
+To ensure a more robust measurement of proximity, we keep track of the last 5 RSSI values received, and take the average of the values. If the average RSSI is stronger than `-65 dBm`, we consider it to be in proximity. Since there is only 1 sender, each requesting node will keep track of the last 5 RSSI values it received from the sender. For the sender node, it will keep track of 5 RSSI values per requesting node that it detects.
 
-If a devices have received an average RSSI reading stronger than `-65 dBm` for the past 15 seconds, then we will print the `DETECT` statement. Likewise, if there is an average RSSI reader weaker than `-65 dBm` for the past 30 seconds, we print `ABSENT`.
+If a device has received an average RSSI reading stronger than `-65 dBm` for at least 15 seconds, then we will print the `DETECT` statement. Consequently, this also begins the data transfer. More is detailed about this [below](#light-sensing-and-data-transfer-logic). Likewise, if there is an average RSSI reader weaker than `-65 dBm` for the past 30 seconds, we print `ABSENT`.
+
+### Light Sensing and Data Transfer Logic
+
+The light sensor is activated every 3s to take readings. Every 30s, a total of 10 light readings will be stored. The readings are kept track of using an array of size 10, and using a counter `light_data_counter` to keep track of which index to be stored at. Whenever it reaches the maximum size of 10, `light_data_counter % 10` is used to calculate which index is to be replaced.
+
+For transferring the light readings, we decided that once the **REQUESTER** is detected to be in proximity (i.e. within 3m for >= 15 seconds) with the **SENDER**, it start to send `REQ` packets to the **SENDER**. The **SENDER** then processes this packet, and initiate the sending of the light readings stored previously. As arrays cannot be sent as it is, we created a custom struct, `light_data_arr` to store the array within the struct, then send the struct over to the **REQUESTER**.
+
+The strategy used for transferring light readings is as follows:
+1. Set a `req_flag` when **REQUESTER** is in proximity for >= 15 seconds
+2. While the `req_flag` is set, all packets sent by the **REQUESTER** will be `REQ` packets. This can also double up as neighbour discovery packets, although unnecessary
+3. When **REQUESTER** receives data, it checks if it is the light data. If it is, it unsets the `req_flag` and will not request for any more data from the **SENDER** while it is in proximity
+4. When **REQUESTER** leaves proximity and re-enters proximity, steps 1 to 3 is repeated
+
+The reason for steps 1 and 2 is because packets can be lost in transit, or may not be received by the **SENDER**. Therefore, we need to send multiple `REQ` packets to the **SENDER** to inform the **SENDER** to send data to that particular **REQUESTER**.
+
+Our design also makes it such that **REQUESTER** will not request for any more data while it is in proximity.
