@@ -156,7 +156,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
       printf("Set sync flag\n");
     }
 
-    if (received_packet_data.src_id != slave_info.src_id) { //new slave detected
+    if (received_packet_data.src_id != slave_info.src_id) { //new sender detected
       slave_info.src_id = received_packet_data.src_id;
       slave_info.in_proximity_since = -1;
       slave_info.out_of_prox_since = -1;
@@ -325,13 +325,14 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       sleep_counter++; 
     }
 
-    int time_diff = clock_time() - prev_discovery_timestamp;
+    unsigned long time_diff = clock_time() - prev_discovery_timestamp;
+
     if (time_diff/CLOCK_SECOND > 5) { //maybe somehow got out of sync
       sync_flag = FALSE;
     }
 
     //no packets received for good 30 seconds -> other device might have died
-    if (clock_time() - prev_discovery_timestamp > OUT_OF_PROXIMITY_THRESHOLD) { 
+    if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) { 
       if (state != ABSENT) {
         printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);        
       }
