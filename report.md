@@ -292,3 +292,13 @@ Likewise, each cycle is segmented into 10 slots. The requester begins keeping th
 
 Once there is detection and is within proximity, the requester will stop incrementing `i` and stay on that slot for each cycle, ensuring its wake period will coincide with the light sensing node.
 
+
+### Logic for proximity detection
+
+Proximity detection and distance ranging is based on RSSI values. If a device is out of proximity, the received RSSI strength will be lower.
+
+Using RSSI, we can estimate the distance between two nodes and determine if they are out of proximity. Using the values found in Assignment 3, the average RSSI reading at 3 meters is `-65 dBm`. 
+
+To ensure a more robust measurement of proximity, we keep track of the last 5 RSSI values received, and take the average of the values. If the average RSSI is stronger than `-65 dBm`, we consider it in proximity. Since there is only 1 sender, each requester node will keep track of the last 5 RSSI values it received from the sender. For the sender node, it will keep track of 5 RSSI values per requester node that it detects.
+
+If a devices have received an average RSSI reading stronger than `-65 dBm` for the past 15 seconds, then we will print the `DETECT` statement. Likewise, if there is an average RSSI reader weaker than `-65 dBm` for the past 30 seconds, we print `ABSENT`.
