@@ -34,6 +34,7 @@
 #define RSSI_WINDOW 10// the number of rssi_values we want to keep
 #define IN_PROXIMITY_THRESHOLD 15
 #define OUT_OF_PROXIMITY_THRESHOLD 30
+#define REQ 12345678
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
 linkaddr_t dest_addr;
@@ -43,7 +44,6 @@ linkaddr_t dest_addr;
 
 static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}}; // modify this to change the light-sensing node
 
-static int sync_flag = FALSE;
 static int prev_sample_time = -1;
 
 #define NUM_SEND 2
@@ -52,7 +52,6 @@ typedef struct {
   unsigned long src_id;
   unsigned long timestamp;
   unsigned long seq;
-  
 } data_packet_struct;
 
 
@@ -63,7 +62,7 @@ typedef struct {
   unsigned long in_proximity_since; //when i first receive a packet from this source
   unsigned long out_of_prox_since; //the first timestamp where it is out-of-proximity
   short rssi_values[RSSI_WINDOW];
-  static int rssi_ptr;
+  int rssi_ptr;
 } packet_store_struct;
 
 typedef struct {
@@ -92,10 +91,6 @@ unsigned long start_clock_time;
 // save previous time it discovered the neighbour
 unsigned long prev_discovery_timestamp = -1;
 
-// array to store all the packets received so far -- experiment: 50 received packets then we stop
-packet_store_struct storage[NUM_DATA];
-// static packet_store_struct current;
-// static unsigned int counter = 0;
 
 // array to store sampling data
 static int light_data[10] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
@@ -123,14 +118,14 @@ static void get_light_reading(void);
 char schedule_sleep(struct rtimer *t, void *ptr);
 static float get_average_rssi();
 static void clear_rssi_values();
-static void clear_node_mem_map();
+// static void clear_node_mem_map();
 /*---------------------------------------------------------------------------*/
 
-static void clear_node_mem_map() {
-  for (int i = 0; i < MAX_NODES; i++) {
-    node_mem_map[i] = FALSE;
-  }
-}
+// static void clear_node_mem_map() {
+//   for (int i = 0; i < MAX_NODES; i++) {
+//     node_mem_map[i] = FALSE;
+//   }
+// }
 
 static float get_average_rssi(short *rssi_values) {
   int num_valid_rssi = 0;
@@ -148,7 +143,7 @@ static float get_average_rssi(short *rssi_values) {
 
 static void clear_rssi_values(short *rssi_values) {
   for (int i = 0; i < RSSI_WINDOW; i++ ) {
-    rssi_values[i] = 0 
+    rssi_values[i] = 0;
   }
 }
 
@@ -176,9 +171,9 @@ init_opt_reading(void)
 // Receiver gets data properly -- but needs syncing.
 static void
 send_light_data(const linkaddr_t *dest) {
-  printf("Sending to address: ");
-  LOG_INFO_LLADDR(dest);
-  printf("\n");
+  // printf("Sending to address: ");
+  // LOG_INFO_LLADDR(dest);
+  // printf("\n");
   light_data_arr temp;
   for (int i = 0; i < 10; i++) {
     temp.data[i] = light_data[i];
@@ -198,36 +193,28 @@ send_light_data(const linkaddr_t *dest) {
 
 // Function called after reception of a packet
 void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest) 
-{
+{ 
   // Check if the received packet size matches with what we expect it to be
   if(len == sizeof(data_packet)) {
     static data_packet_struct received_packet_data;
-    int in_proximity = 0; // checks if this is in proximity
     int i;
+    int req_flag = FALSE;
     curr_timestamp = clock_time();
 
     // Copy the content of packet into the data structure
     memcpy(&received_packet_data, data, len);
     signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
-    
     printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
 
-    if (!sync_flag) {
-      data_packet_struct temp;
-      nullnet_buf = (uint8_t *)&temp; //data transmitted
-      nullnet_len = sizeof(temp); //length of data transmitted
-      temp.seq = -1; // to show synchronisation packet
-      curr_timestamp = clock_time();
-      temp.timestamp = curr_timestamp;
-      NETSTACK_NETWORK.output(src); //Packet transmission
-      sync_flag = TRUE;
+    if (received_packet_data.seq == REQ) {
+      printf("Received REQ\n");
+      req_flag = TRUE;
     }
-
 
 
     packet_store_struct *curr = NULL;
 
-    int node_slot = -1;
+    static int node_slot = -1;
     for (i = 0; i < MAX_NODES; i++) {
       if (node_tracker[i].src_id == received_packet_data.src_id && node_mem_map[i] == TRUE) {
         //node previously registered
@@ -236,7 +223,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         break;
       }
 
-      if (node_mem_map == FALSE && node_slot == -1) {
+      if (node_mem_map[i] == FALSE && node_slot == -1) {
         node_slot = i;
       }
 
@@ -250,8 +237,8 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         curr = &node_tracker[node_slot];
         node_mem_map[node_slot] = TRUE;
         
-        curr->in_proximity_since == -1
-        curr->out_of_prox_since == -1
+        curr->in_proximity_since = -1;
+        curr->out_of_prox_since = -1;
 
         curr->rssi_ptr = 0;
         curr->src_id = received_packet_data.src_id;
@@ -272,7 +259,10 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         unsigned long time_diff = curr_timestamp - curr->in_proximity_since;
         if (time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
           printf("%3lu.%03lu DETECT %ld\n", curr->in_proximity_since / CLOCK_SECOND, ((curr->in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
-          //to send light data
+          // keep sending while data is being requested from master
+          if (req_flag) {
+            send_light_data(src);
+          }
         } 
 
       } else {
@@ -306,8 +296,14 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
 
     // stay awake for 0.1s
     for(i = 0; i < NUM_SEND; i++){
+      nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+      nullnet_len = sizeof(data_packet); //length of data transmitted
+      data_packet.seq++;
+      curr_timestamp = clock_time();
+      data_packet.timestamp = curr_timestamp;
 
-      // no need to send
+      NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
+      
       // wait for WAKE_TIME before going into sleep routine
       if(i != (NUM_SEND - 1)){
         rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)schedule_sleep, ptr);
@@ -326,13 +322,13 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
     // printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
 
     if (prev_sample_time == -1) {
-      printf("Collecting first light reading\n");
+      // printf("Collecting first light reading\n");
       get_light_reading();
       prev_sample_time = RTIMER_NOW();
     }
 
     if (RTIMER_NOW() - prev_sample_time  >= SAMPLING_INTERVAL) {
-      printf("Interval reached, collecting reading\n");
+      // printf("Interval reached, collecting reading\n");
       get_light_reading();
       prev_sample_time = RTIMER_NOW();
     }
@@ -351,12 +347,11 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
 
   PROCESS_BEGIN();
 
-  // initialize data packet sent for neighbour discovery exchange
   data_packet.src_id = node_id; //Initialize the node ID
   data_packet.seq = 0; //Initialize the sequence number of the packet
   
   nullnet_set_input_callback(receive_packet_callback); //initialize receiver callback
-  linkaddr_copy(&dest_addr, &linkaddr_null);
+  linkaddr_copy(&dest_addr, &linkaddr_null); 
 
   // if it is the light sensor node, keep collecting data very SAMPLING_INTERVAL
   if (linkaddr_cmp(&light_addr, &linkaddr_node_addr)) {
