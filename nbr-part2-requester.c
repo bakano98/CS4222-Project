@@ -48,7 +48,6 @@ static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5
 static int sync_flag = FALSE;
 static int req_flag = FALSE;
 static int seq = 0;
-static int has_sent = FALSE;
 
 #define NUM_SEND 2
 /*---------------------------------------------------------------------------*/
@@ -168,6 +167,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
       unsigned long time_diff = curr_timestamp - slave_info.in_proximity_since;
       if (state != DETECT && time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
         printf("%3lu.%03lu DETECT %ld\n", slave_info.in_proximity_since / CLOCK_SECOND, ((slave_info.in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
+        req_flag = TRUE;
         state = DETECT;        
       } 
     } else {
@@ -180,14 +180,13 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
         slave_info.src_id = -1;
         req_flag = FALSE;
-        has_sent = FALSE;
         state = ABSENT;
       }       
     }
 
   } else {
     light_data_arr received_data;
-    has_sent = TRUE; // received data, no more asking
+    req_flag = FALSE; // received data, no more asking
     // Copy the content of packet into the data structure
     
     memcpy(&received_data, data, len);
