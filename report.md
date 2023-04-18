@@ -273,18 +273,22 @@ Finally, after the node has been successfully detected, also print the light sen
 
 The algorithm implemented to ensure node discovery is different from the one in Task 1.
 
-For Task 2, since the architecture is many-to-one (where the one is the light sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the SLAVE and the SensorTags as the MASTER (request for data). Therefore, the algorithm works and can achieve a lower duty cycle than what was seen in Task 1.
+For Task 2, since the architecture is many-to-one (where the one is the light sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the SENDER and the SensorTags as the REQUESTER (request for data). 
 
-Our algorithm has a duty cycle of 10%, i.e. it wakes for 0.1s and sleeps for 0.9s. The below diagram shows the general idea of how the algorithm was implemented, following a "lowest common multiple" logic.
 
-// show image describing the algo
+### Neighbour Discovery Logic
 
-The algorithm works as such:
-- A single second is split into 10 slots. Each slot is 0.1s long.
-- The SLAVE node will always wake up in the first slot, then sleep for the remaining 9 slots
-- The MASTER node will wake up in different slots
-    - It starts by waking in the first slot, then sleeping for 9 slots
-    - Next, it sleeps for 1 slot, then wakes in the second slot, and sleep for the remaining slots
-    - Repeat
+Given the asymmetrical roles of the devices, the neighbour discovery algorithm used here is also different from part 1. Both SENDER and REQUESTER devices implement different algorithms to achieve neighbour discovery within 10 seconds and has a duty cycle of 10%.
 
-This ensures that the SLAVE and MASTER will find each other within a deterministic 10s. The duty cycle can be further lowered by increasing the number of slots, but this will cause the average discovery time to be longer.1
+In our case, each cycle lasts 1 second, and our nodes are guaranteed to discover each other within 10 cycles.
+
+#### **SENDER**
+
+Each cycle is segmented into 10 slots, and the sender wakes up the radio for the first slot, before going to sleep for the remaining 9 slots.
+
+#### **REQUESTER**
+
+Likewise, each cycle is segmented into 10 slots. The requester begins keeping the radio awake for a randomly chosen initial starting slot `i`, where 0 <= i <= 0, and turns the radio off for the remaining 9 slots. If there is no detection within this cycle, the requester will pick slot `i = i+1 mod 10` for the next cycle to stay awake. 
+
+Once there is detection and is within proximity, the requester will stop incrementing `i` and stay on that slot for each cycle, ensuring its wake period will coincide with the light sensing node.
+
