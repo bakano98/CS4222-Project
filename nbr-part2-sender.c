@@ -1,6 +1,6 @@
 /*
 * CS4222/5422: Group Project
-* Slave Node. This is the node that performs the light sensing.
+* Light Sensing Node. This is the node that performs the light sensing.
 */
 
 #include "contiki.h"
@@ -27,14 +27,15 @@
 #define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
 #define SLEEP_CYCLE  9        	      // 0 for never sleep
 #define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
-#define SAMPLING_INTERVAL RTIMER_SECOND * 5 // remember to change to 30s sampling interval
+#define SAMPLING_INTERVAL RTIMER_SECOND * 5 // 30s sampling interval
 
 #define MAX_NODES 5 // modify to specify max number of nodes that can be in proximity
 #define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
-#define RSSI_WINDOW 10// the number of rssi_values we want to keep
-#define IN_PROXIMITY_THRESHOLD 15
-#define OUT_OF_PROXIMITY_THRESHOLD 30
+#define RSSI_WINDOW 5 // the number of rssi_values we want to keep
+#define IN_PROXIMITY_THRESHOLD 10
+#define OUT_OF_PROXIMITY_THRESHOLD 10
 #define REQ 12345678
+
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
 linkaddr_t dest_addr;
@@ -181,11 +182,11 @@ send_light_data(const linkaddr_t *dest) {
   nullnet_buf = (uint8_t *)&temp;
   nullnet_len = sizeof(temp);
   NETSTACK_NETWORK.output(dest);
-  printf("Light: ");
-  for (int i = 0; i < 10; i++) {
-    printf("Reading %d = %d.%02d LUX ", i+1, light_data[i]/100, light_data[i]%100);
-  }
-  printf("\n");
+  // printf("Light: ");
+  // for (int i = 0; i < 10; i++) {
+  //   printf("Reading %d = %d.%02d LUX ", i+1, light_data[i]/100, light_data[i]%100);
+  // }
+  // printf("\n");
 }
 
 /*========================end light sensor stuff========================*/

@@ -1,6 +1,6 @@
 /*
 * CS4222/5422: Group Project
-* Master Node - This is the node that sends discovery packets to the light sensing node.
+* Requesting Node - This is the node that sends discovery packets to the light sensing node.
 */
 
 #include "contiki.h"
@@ -30,9 +30,9 @@
 
 #define MAX_NODES 5 // modify to specify max number of nodes that can be in proximity
 #define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
-#define RSSI_WINDOW 10// the number of rssi_values we want to keep
-#define IN_PROXIMITY_THRESHOLD 15
-#define OUT_OF_PROXIMITY_THRESHOLD 30
+#define RSSI_WINDOW 5 // the number of rssi_values we want to keep
+#define IN_PROXIMITY_THRESHOLD 10
+#define OUT_OF_PROXIMITY_THRESHOLD 10
 #define REQ 12345678
 #define TOLERANCE 9 // tolerance for delay
 
@@ -136,7 +136,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
   if (len == sizeof(data_packet)) {
     data_packet_struct received_packet_data;
     memcpy(&received_packet_data, data, len);
-    // printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
+    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
 
     // if (received_packet_data.seq % 2 != 0) {
     //   printf("Attempting to sync\n");
@@ -186,8 +186,9 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     // Copy the content of packet into the data structure
     
     memcpy(&received_data, data, len);
+    printf("Light:  ");
     for (int i = 0; i < 10; i++) {
-      printf("Reading %d: %d.%02d LUX ", i+1, received_data.data[i]/100, received_data.data[i]%100);
+      printf("Reading %d: %d.%02d lux, ", i+1, received_data.data[i]/100, received_data.data[i]%100);
     }
     printf("\n");
   }
