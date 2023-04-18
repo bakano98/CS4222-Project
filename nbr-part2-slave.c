@@ -31,6 +31,9 @@
 
 #define MAX_NODES 5 // modify to specify max number of nodes that can be in proximity
 #define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
+#define RSSI_WINDOW 10// the number of rssi_values we want to keep
+#define IN_PROXIMITY_THRESHOLD 15
+#define OUT_OF_PROXIMITY_THRESHOLD 30
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
 linkaddr_t dest_addr;
@@ -54,12 +57,13 @@ typedef struct {
 
 
 /*---------------------------------------------------------------------------*/
-// custom struct to store
+// custom struct to store information per for each node that are in sync...
 typedef struct {
   unsigned long src_id;
-  unsigned long recv_timestamp;
-  unsigned long oop_timestamp;
-  unsigned long last_sent;
+  unsigned long in_proximity_since; //when i first receive a packet from this source
+  unsigned long out_of_prox_since; //the first timestamp where it is out-of-proximity
+  short rssi_values[RSSI_WINDOW];
+  static int rssi_ptr;
 } packet_store_struct;
 
 typedef struct {
@@ -99,7 +103,7 @@ static int light_data_counter = 0;
 
 // neighbours discovered so far. we allow discovery of up to 5 neighbours
 packet_store_struct node_tracker[MAX_NODES];
-static int node_counter = 0;
+static bool node_mem_map[MAX_NODES];
 
 
 // Starts the main contiki neighbour discovery process
@@ -117,7 +121,36 @@ AUTOSTART_PROCESSES(&nbr_discovery_process);
 static void init_opt_reading(void);
 static void get_light_reading(void);
 char schedule_sleep(struct rtimer *t, void *ptr);
+static float get_average_rssi();
+static void clear_rssi_values();
+static void clear_node_mem_map();
 /*---------------------------------------------------------------------------*/
+
+static void clear_node_mem_map() {
+  for (int i = 0; i < MAX_NODES; i++) {
+    node_mem_map[i] = FALSE;
+  }
+}
+
+static float get_average_rssi(short *rssi_values) {
+  int num_valid_rssi = 0;
+  int total_rssi = 0;
+  
+  for (int i = 0; i < RSSI_WINDOW; i++ ) {
+    if (rssi_values[i] != 0) {
+      num_valid_rssi += 1;
+      total_rssi += rssi_values[i];
+    }
+  }
+
+  return ((float) total_rssi)/num_valid_rssi;
+}
+
+static void clear_rssi_values(short *rssi_values) {
+  for (int i = 0; i < RSSI_WINDOW; i++ ) {
+    rssi_values[i] = 0 
+  }
+}
 
 static void
 get_light_reading()
@@ -176,6 +209,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     // Copy the content of packet into the data structure
     memcpy(&received_packet_data, data, len);
     signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
+    
     printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
 
     if (!sync_flag) {
@@ -189,87 +223,71 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
       sync_flag = TRUE;
     }
 
-    if (recv_rssi > -65) {
-      in_proximity = 1;
-    }
 
-
-    packet_store_struct temp;
-    temp.src_id = received_packet_data.src_id;
-    temp.recv_timestamp = in_proximity ? curr_timestamp : 0;
-    temp.oop_timestamp = in_proximity ? 0 : curr_timestamp;
-    
-    if (node_counter == 0) {
-      printf("First node, no need to check\n");
-      node_tracker[node_counter] = temp;
-      node_counter++;
-      return;
-    }
 
     packet_store_struct *curr = NULL;
 
-    // get a reference to the current packet's node
-    for (i = 0; i < node_counter; i++) {
-      if (node_tracker[i].src_id == temp.src_id) {
+    int node_slot = -1;
+    for (i = 0; i < MAX_NODES; i++) {
+      if (node_tracker[i].src_id == received_packet_data.src_id && node_mem_map[i] == TRUE) {
+        //node previously registered
         curr = &node_tracker[i];
+        node_slot = i;
         break;
       }
+
+      if (node_mem_map == FALSE && node_slot == -1) {
+        node_slot = i;
+      }
+
     }
-
-    if (curr == NULL) {
-      // means this is a new node, so just add it in
-      // and return
-      node_tracker[node_counter] = temp;
-      node_counter++;
-      return;
-    } 
-
-    if (curr == NULL && node_counter == MAX_NODES) {
+    
+    if (curr == NULL && node_slot == -1) {
       printf("Max capacity reached\n");
-    }
+    } else {
 
-    // not a new node means we need to check the times
-    unsigned long time_diff;
-    // check either >= 15s if present, >= 30s if not
-    if (in_proximity) {
-      if (curr->recv_timestamp == 0) {
-        printf("Recently got resetted\n");
-        curr->recv_timestamp = curr_timestamp;
-        curr->last_sent = 0;
+      if (curr == NULL) { //register new node by initializing node_tracker slot
+        curr = &node_tracker[node_slot];
+        node_mem_map[node_slot] = TRUE;
+        
+        curr->in_proximity_since == -1
+        curr->out_of_prox_since == -1
+
+        curr->rssi_ptr = 0;
+        curr->src_id = received_packet_data.src_id;
+        clear_rssi_values(curr->rssi_values);
       }
+
+
+      //perform action on registered node
+      curr->rssi_values[curr->rssi_ptr] = recv_rssi;
+      curr->rssi_ptr = (curr->rssi_ptr + 1) % RSSI_WINDOW;
       
-      if (curr->recv_timestamp == 0) {
-        curr->recv_timestamp = curr_timestamp;
-      }
-
-      time_diff = curr_timestamp - curr->recv_timestamp;
-
-      // change to 15
-      if (time_diff / CLOCK_SECOND >= 2) {
-        // send if it has been more than 30s since the last send
-        if ((curr_timestamp - curr->last_sent) / CLOCK_SECOND >= 30 || curr->last_sent == 0) {
-          printf("%3lu.%03lu DETECT %ld\n", curr->recv_timestamp / CLOCK_SECOND, ((curr->recv_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
-          send_light_data(src);
-          curr->last_sent = curr_timestamp;
-        }
-      }
-    } 
-    // not in proximity
-    else {
-      if (curr->oop_timestamp == 0) {
-        curr->oop_timestamp = curr_timestamp;
-      }
-      time_diff = curr_timestamp - curr->oop_timestamp;
-
-      if (time_diff / CLOCK_SECOND >= 10) { // change to 30 for 30s
-        // because it was otherwise never present.
-        if (curr->recv_timestamp != 0 && curr->oop_timestamp != 0) {
-          printf("%3lu.%03lu ABSENT %ld\n", curr->oop_timestamp / CLOCK_SECOND, ((curr->oop_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
-          curr->recv_timestamp = 0;
-          curr->oop_timestamp = 0; // need to reset oop_timestamp
+      if (get_average_rssi(curr->rssi_values) > -65) {
+        if (curr->in_proximity_since == -1) {
+          curr->in_proximity_since = curr_timestamp;
+          curr->out_of_prox_since = -1;
         } 
+
+        unsigned long time_diff = curr_timestamp - curr->in_proximity_since;
+        if (time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+          printf("%3lu.%03lu DETECT %ld\n", curr->in_proximity_since / CLOCK_SECOND, ((curr->in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
+          //to send light data
+        } 
+
+      } else {
+        if (curr->out_of_prox_since == -1) {
+          curr->out_of_prox_since = curr_timestamp;
+          curr->in_proximity_since = -1;
+        } 
+
+        unsigned long time_diff = curr_timestamp - curr->out_of_prox_since;
+        if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
+          printf("%3lu.%03lu ABSENT %ld\n", curr->out_of_prox_since / CLOCK_SECOND, ((curr->out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
+          node_mem_map[node_slot] = FALSE;
+        } 
+
       }
-      // maybe remove node if can, but for now do nothing
     }
 
   }
