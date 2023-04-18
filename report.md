@@ -42,19 +42,17 @@ The second task requires us to perform light sensing and neighbour discovery. On
 
 > Using the default settings, observe and record how long the devices take to discover each other. Pick one of the devices as A and plot the cumulative distribution of the intervals between packet receptions on device A hearing from device B.
 
-On the default settings. Will need to monitor A and B and check the FIRST packet received from each other.
 The cumulative distribution of the intervals between packet reception on A hearing from B is as follows:
 <p align="center">
     <img src="./images/q1-graph.png" /> </br>
     <em> Figure 1: Cumulative distribution of intervals on default settings</em>
 </p></br>
 
-For this experiment, we performed repeated the experiment for a total of 50 times. The first packet discovered is not taken into account as the interval is 0. Thus, our dataset includes a total of 49 intervals. A total of 449 data packets were sent to A from B, during the 50 runs of the experiment.
+Each time A receives a packet from B, we print out the time difference between the current timestamp and the previous timestamp that a packet is received. We repeated this for 50 receptions, giving us a total of 49 intervals.
 
 We plotted the cumulative distribution curve by splitting the dataset into intervals increasing by 1s (i.e. 0 - 1s, 0 - 2s... etc), then finding how many packets are received during those intervals.
 
-The average time for device A to discover B, according to our data is approximately 4.20s, and the last packet received had a sequence number of 449.
-
+From our experiment, the average time for device A to discover B is approximately 4.20s, however, the longest time it took for A to discover B was 16 seconds. 
 </br>
 
 ### Question 2
@@ -66,10 +64,11 @@ The average time for device A to discover B, according to our data is approximat
     <em> Figure 2: Cumulative distribution of intervals when B reboots</em>
 </p></br>
 
-The way the distirubtion curve was plotted is the same as in Question 1.
-Modifications were made to the structure of the data packet. We added a new field, `startup_time` in order to append the time in which the device booted up and started sending the first packet.
+The distribution curve was plotted in the same way as in Question 1.
 
-We performed the experiment 20 times (manually). Each time, we rebooted B, then printed to serial monitor the time it took to receive the packet from B, which is calculated as `timestamp` - `startup_time`.
+Modifications were made to the structure of the data packet. We added a new field, `startup_time` to denote the time in which device B booted up and sent the first packet. 
+
+We performed the experiment 20 times manually. After each reboot of B, A prints to the serial monitor the time it took to receive the packet from B. The time taken for device A to discover B after B's bootup is the time difference between `startup_time` and the time the received packet was sent.
 
 The average time for device A to discover B after resetting, according to our data is approximately 4.08s
 
@@ -84,15 +83,18 @@ The following modifications were made:
 1. Change sleep slot (SLEEP_SLOT)
 1. Change sleep cycle (SLEEP_CYCLE)
 
-For this part of the experiment, we took the readings 50 times and took the average time to discover each other. In total, there are 49 intervals (50 data points but the first cannot be used as there is no interval before it).
+For this part of the experiment, we took the time intervals across 50 receives. As such, like before, there are 49 intervals.
 
 The different settings we used were as follows:
-| Experiment Number | Setting | Average Time to Discovery (A discovers B) | Average Time to Discovery (B discovers A) | Last Packet Number (B -> A) | Last Packet Number (A -> B) |
+
+| Experiment Number | Setting | Average Time to Discovery (A discovers B) | Average Time to Discovery (B discovers A) | Total Number of packets sent by B | Total Number of packets sent by A |
 | ------------------| ------- | ------------------------- | ------------------------| --- | -- |
-| 1 | Change wake time to 0.05s (RTIMER_SECOND/20) | 12.300s | 11.860s | 1265 | 1249 |
-| 2 | Change wake time to 0.2s (RTIMER/5) | 2.757s | 2.671s | 267 | 238 |
-| 3 | Change sleep cycle to 5 | 1.945s | 2.031s | 322 | 403 |
-| 4 | Change sleep slot to RTIMER_SECOND/12 | 3.976s | 4.015s | 485 | 473 |
+| 1 | Wake time from 0.1s to 0.05s (RTIMER_SECOND/20) | 12.300s | 11.860s | 1265 | 1249 |
+| 2 | Wake time from 0.1s to 0.2s (RTIMER/5) | 2.757s | 2.671s | 267 | 238 |
+| 3 | Sleep cycle from 9 to 5 | 1.945s | 2.031s | 322 | 403 |
+| 4 | Sleep slot from RTIMER_SECOND/10 to RTIMER_SECOND/12 | 3.976s | 4.015s | 485 | 473 |
+
+The results for each modification is explained below.
 
 > Table 1: Summary of the experiments and their results
 
@@ -116,9 +118,9 @@ Figure 3.1 shows the distribution of packets received against intervals for the 
 
 > Table 2: Summary of experiment 1 and the results
 
-This experiment involved changing the wake time to 0.05s. When the wake time is decreased to 0.05s, the average time it takes for A to discover B and vice-versa is longer as shown in the table above.
+This experiment involved reducing the wake time from 0.1s to 0.05s. When the wake time is decreased to 0.05s, the average time it takes for A to discover B and vice-versa is longer as shown in the table above.
 
-This is because there is a smaller window for A to discover B even though more packets are being sent per second. With a shorter window for discovery, it is harder for discovery to occur.
+While reducing wake time reduces the duty cycle, this also lowers the chance of discover since there is less chance for two wake windows to coincide.
 
 ***
 
@@ -141,9 +143,9 @@ The table below shows the probability of receiving a packet within X seconds:
 
 > Table 3: Summary of experiment 2 and the results
 
-The second experiment involved changing the wake time to 0.2s. This was to complement the findings from the previous experiment.
+The second experiment involved increasing the wake time from 0.1s to 0.2s. When the wake time was increased to 0.2s, as expected, the average time taken for A to discover B is shorter. 
 
-When the wake time was increased to 0.2s, as expected, the average time taken for A to discover B is shorter. Even though less packets are being sent per second, the window in which A can discover a packet sent by B is larger (as A is active for a longer time) leading to better discovery of packets sent.
+By increasing the wake time, we increase the duty cycle and the chance that two wake periods coincide with each other, reducing the time it takes for one device to discover the other.
 
 ***
 
@@ -166,11 +168,9 @@ The table below shows the probability of receiving a packet within X seconds:
 
 > Table 4: Summary of experiment 3 and the results
 
-The third experiment changed the sleep cycle to 5. This is lower than the default 9.
+The third experiment reduced the sleep cycle from 9 to 5.
 
-When the sleep cycle is lowered to 5 (i.e. Tsleep is decreased because Tsleep = SLEEP_SLOT \* SLEEP_CYCLE), the amount of time it takes for A to discover B is shorter, and vice-versa. This is likely because both devices are more active and sending more packets with the same amount of WAKE_TIME to discover the sent packets.
-
-This is corroborated by the fact that the last packet received by A in Experiment 2 has a sequence number of 267 (see Table 1), whereas the last packet received by A in Experiment 3 has a sequence number of 322 despite having a much lower average discovery time.
+When the sleep cycle is lowered to 5 (i.e. Tsleep is decreased because Tsleep = SLEEP_SLOT \* SLEEP_CYCLE), the amount of time it takes for A to discover B is shorter, and vice-versa. This is because by reducing the amount of time spent alseep per cycle, the duty cycle has increased, which increases the chance of discovery.
 
 <p align="center">
     <img src="./images/exp4.png" /> </br>
@@ -191,9 +191,7 @@ The table below shows the probability of receiving a packet within X seconds:
 
 > Table 5: Summary of experiment 4 and the results
 
-The fourth (and last) experiment conducted involved reducing the sleep slot. When the sleep slot is reduced, the amount of time it takes for A to discover B is also lesser.
-
-This is as expected, because similar to lowering the sleep cycles, both devices are more active overall and thus, more packets are being sent. Since more packets are being sent while maintaining the same receive window (as opposed to the first experiment where the window is reduced), it leads to lower average discovery time. More packets are evidently being sent when we compare the result of this experiment to the base experiment in Question 1 -- where the number of packets received is 449 despite having approximately the same average discovery time.
+The fourth (and last) experiment conducted involved reducing the sleep slot. The sleep slot represents the time spent sleeping per slot. When the sleep slot is reduced, we reduce Tsleep. When we reduce the amount of time spent sleeping per cycle, the duty cycle increases, increasing the chance of discovery, and hence the amount of time it takes for A to discover B is also lesser.
 
 ---
 
@@ -210,12 +208,11 @@ We removed all the parameters, `Twake`, `Tsleep`, etc.. and instead introduced t
 2. `N`
 3. `SLOT_TIME`
 
-Where `DISCOVER_WITHIN` stands for the upper bound time for a packet to be discovered by its neighbour. For the purposes of this project, `DISCOVER_WITHIN` is set to 10 seconds as required by the project constraints.
+Where `DISCOVER_WITHIN` stands for the upper bound time for a packet to be discovered by its neighbour. For this project, `DISCOVER_WITHIN` is set to 10 seconds as required by the project constraints.
 
-`N` is the number of rows and columns (as in the image above), and `SLOT_TIME` is the amount of time per slot. `SLOT_TIME` is calculated as `DISCOVER_WITHIN/(N*N)`, whereas the other two parameters are decided by the user based on the constraints.
+`N` is the number of rows and columns (as in the image above), and `SLOT_TIME` is the amount of time per slot. `SLOT_TIME` is calculated as `DISCOVER_WITHIN/(N*N)`. By varying `N`, we can control the duty cycle of the discovery algorithm.
 
-Based on the algorithm, the number of slots is 100, and our duty cycle is determined to be 19%. While it is possible to reduce the duty cycle by increasing `N` (hence reducing `SLOT_TIME`), we decided that this is not ideal as it increases the amount of packets being transmitted per second which leads to increased power consumption (since transmitting information is costly).
-> To be changed if the answer from Prof/TA is that it is purely calculated by duty cycle.
+`N` is set to a value of 10, and hence the number of slots is 100. Of these 100 slots, the radio will be on for 19 of the slots, and hence our duty cycle is calculated to be 19%.
 
 Based on our tests, the maximum 2-way discovery latency is around 9.8s. The theoretical upper-bound is set at 10s.
 
@@ -276,18 +273,22 @@ Finally, after the node has been successfully detected, also print the light sen
 
 The algorithm implemented to ensure node discovery is different from the one in Task 1.
 
-For Task 2, since the architecture is many-to-one (where the one is the light sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the SLAVE and the SensorTags as the MASTER (request for data). Therefore, the algorithm works and can achieve a lower duty cycle than what was seen in Task 1.
+For Task 2, since the architecture is many-to-one (where the one is the light sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the SENDER and the SensorTags as the REQUESTER (request for data). 
 
-Our algorithm has a duty cycle of 10%, i.e. it wakes for 0.1s and sleeps for 0.9s. The below diagram shows the general idea of how the algorithm was implemented, following a "lowest common multiple" logic.
 
-// show image describing the algo
+### Neighbour Discovery Logic
 
-The algorithm works as such:
-- A single second is split into 10 slots. Each slot is 0.1s long.
-- The SLAVE node will always wake up in the first slot, then sleep for the remaining 9 slots
-- The MASTER node will wake up in different slots
-    - It starts by waking in the first slot, then sleeping for 9 slots
-    - Next, it sleeps for 1 slot, then wakes in the second slot, and sleep for the remaining slots
-    - Repeat
+Given the asymmetrical roles of the devices, the neighbour discovery algorithm used here is also different from part 1. Both SENDER and REQUESTER devices implement different algorithms to achieve neighbour discovery within 10 seconds and has a duty cycle of 10%.
 
-This ensures that the SLAVE and MASTER will find each other within a deterministic 10s. The duty cycle can be further lowered by increasing the number of slots, but this will cause the average discovery time to be longer.1
+In our case, each cycle lasts 1 second, and our nodes are guaranteed to discover each other within 10 cycles.
+
+#### **SENDER**
+
+Each cycle is segmented into 10 slots, and the sender wakes up the radio for the first slot, before going to sleep for the remaining 9 slots.
+
+#### **REQUESTER**
+
+Likewise, each cycle is segmented into 10 slots. The requester begins keeping the radio awake for a randomly chosen initial starting slot `i`, where 0 <= i <= 0, and turns the radio off for the remaining 9 slots. If there is no detection within this cycle, the requester will pick slot `i = i+1 mod 10` for the next cycle to stay awake. 
+
+Once there is detection and is within proximity, the requester will stop incrementing `i` and stay on that slot for each cycle, ensuring its wake period will coincide with the light sensing node.
+
