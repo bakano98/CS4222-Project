@@ -30,6 +30,9 @@
 
 #define MAX_NODES 5 // modify to specify max number of nodes that can be in proximity
 #define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
+#define RSSI_WINDOW 10// the number of rssi_values we want to keep
+#define IN_PROXIMITY_THRESHOLD 15
+#define OUT_OF_PROXIMITY_THRESHOLD 30
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
 linkaddr_t dest_addr;
@@ -54,14 +57,39 @@ typedef struct {
 // custom struct to store
 typedef struct {
   unsigned long src_id;
-  unsigned long recv_timestamp;
-  unsigned long oop_timestamp;
-  unsigned long last_sent;
+  unsigned long in_proximity_since; //when i first receive a packet from this source
+  unsigned long out_of_prox_since; //the first timestamp where it is out-of-proximity
+  short rssi_values[RSSI_WINDOW];
+  static int rssi_ptr;
 } packet_store_struct;
 
 typedef struct {
   int data[10];
 } light_data_arr;
+
+/*========================start rolling rssi stuff========================*/
+static float get_average_rssi();
+static void clear_rssi_values();
+/*---------------------------------------------------------------------------*/
+static float get_average_rssi(short *rssi_values) {
+  int num_valid_rssi = 0;
+  int total_rssi = 0;
+  
+  for (int i = 0; i < RSSI_WINDOW; i++ ) {
+    if (rssi_values[i] != 0) {
+      num_valid_rssi += 1;
+      total_rssi += rssi_values[i];
+    }
+  }
+
+  return ((float) total_rssi)/num_valid_rssi;
+}
+
+static void clear_rssi_values(short *rssi_values) {
+  for (int i = 0; i < RSSI_WINDOW; i++ ) {
+    rssi_values[i] = 0 
+  }
+}
 
 /*---------------------------------------------------------------------------*/
 // duty cycle = WAKE_TIME / (WAKE_TIME + SLEEP_SLOT * SLEEP_CYCLE)
@@ -85,9 +113,9 @@ unsigned long start_clock_time;
 // save previous time it discovered the neighbour
 unsigned long prev_discovery_timestamp = -1;
 
-// array to store all the packets received so far -- experiment: 50 received packets then we stop
-packet_store_struct storage[NUM_DATA];
-// static packet_store_struct current;
+//struct holding information about node we have connected with
+static packet_store_struct slave_info;
+
 
 // Starts the main contiki neighbour discovery process
 PROCESS(nbr_discovery_process, "cc2650 neighbour discovery process");
@@ -98,12 +126,50 @@ AUTOSTART_PROCESSES(&nbr_discovery_process);
 // Function called after reception of a packet
 void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest) 
 { 
+  signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
+  curr_timestamp = clock_time();
+
+
   if (len == sizeof(data_packet)) {
     printf("Maybe received synchronisation packet!\n");
     data_packet_struct received_packet_data;
     memcpy(&received_packet_data, data, len);
     sync_flag = received_packet_data.seq == -1 ? TRUE : FALSE;
     printf("Set sync flag\n");
+
+    if (received_packet_data.src_id != slave_info.src_id) { //new slave detected
+      slave_info.src_id = received_packet_data.src_id;
+      slave_info.in_proximity_since = -1;
+      slave_info.out_of_prox_since = -1;
+      clear_rssi_values(slave_info.rssi_values);
+      slave_info.rssi_ptr = 0;
+    }
+
+    slave_info.rssi_values[slave_info.rssi_ptr] = recv_rssi;
+    slave_info.rssi_ptr = (slave_info.rssi_ptr + 1) % RSSI_WINDOW;
+
+    if (get_average_rssi(curr->rssi_values) > -65) {
+      if (slave_info.in_proximity_since == -1) {
+        slave_info.in_proximity_since = curr_timestamp;
+        slave_info.out_of_prox_since = -1;
+      } 
+
+      unsigned long time_diff = curr_timestamp - slave_info.in_proximity_since;
+      if (time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+        printf("%3lu.%03lu DETECT %ld\n", slave_info.in_proximity_since / CLOCK_SECOND, ((slave_info.in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
+      } 
+    } else {
+      if (slave_info.out_of_prox_since == -1) {
+        slave_info.out_of_prox_since = curr_timestamp;
+        slave_info.in_proximity_since = -1;
+      } 
+      unsigned long time_diff = curr_timestamp - slave_info.out_of_prox_since;
+      if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
+        printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
+        slave_info.src_id = -1;
+      }       
+    }
+
   } else {
     light_data_arr received_data;
     // Copy the content of packet into the data structure
