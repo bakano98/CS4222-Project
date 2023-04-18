@@ -74,6 +74,7 @@ typedef struct {
 /*========================start rolling rssi stuff========================*/
 static float get_average_rssi();
 static void clear_rssi_values();
+static void on_absent_state();
 /*---------------------------------------------------------------------------*/
 static float get_average_rssi(short *rssi_values) {
   int num_valid_rssi = 0;
@@ -114,7 +115,7 @@ unsigned long curr_timestamp;
 // save timestamp when it started sending
 unsigned long start_clock_time;
 
-// save previous time it discovered the neighbour
+// save the previous time it discovered the neighbour
 unsigned long prev_discovery_timestamp = -1;
 
 //struct holding information about node we have connected with
@@ -122,6 +123,13 @@ static packet_store_struct slave_info;
 
 static bool state = ABSENT;
 
+
+// reinitialize some variables upon transitioning to absent_state
+static void on_absent_state() {
+  slave_info.src_id = -1;
+  req_flag = FALSE;
+  state = ABSENT;
+}
 
 // Starts the main contiki neighbour discovery process
 PROCESS(nbr_discovery_process, "cc2650 neighbour discovery process");
@@ -134,6 +142,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 { 
   signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
   curr_timestamp = clock_time();
+  prev_discovery_timestamp = curr_timestamp;
 
 
   if (len == sizeof(data_packet)) {
@@ -178,9 +187,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
       unsigned long time_diff = curr_timestamp - slave_info.out_of_prox_since;
       if (state != ABSENT && time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
         printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
-        slave_info.src_id = -1;
-        req_flag = FALSE;
-        state = ABSENT;
+        on_absent_state();
       }       
     }
 
@@ -323,7 +330,13 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       sync_flag = FALSE;
     }
 
-
+    //no packets received for good 30 seconds -> other device might have died
+    if (clock_time() - prev_discovery_timestamp > OUT_OF_PROXIMITY_THRESHOLD) { 
+      if (state != ABSENT) {
+        printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);        
+      }
+      on_absent_state();
+    } 
   }
   PT_END(&pt);
 }
