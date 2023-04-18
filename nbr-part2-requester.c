@@ -318,7 +318,8 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       sleep_counter++; 
     }
 
-    if (clock_time() - prev_discovery_timestamp > 5) { //maybe somehow got out of sync
+    int time_diff = clock_time() - prev_discovery_timestamp;
+    if (time_diff/CLOCK_SECOND > 5) { //maybe somehow got out of sync
       sync_flag = FALSE;
     }
 
