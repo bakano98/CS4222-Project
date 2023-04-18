@@ -1,6 +1,6 @@
 /*
-* CS4222/5422: Assignment 3b
-* Perform neighbour discovery
+* CS4222/5422: Group Project
+* Master Node - This is the node that sends discovery packets to the light sensing node.
 */
 
 #include "contiki.h"
@@ -115,7 +115,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
   static int sleep_counter = 0;
   static int sc;
   static int j;
-  static int info;
+  // static int info;
   // Begin the protothread
   PT_BEGIN(&pt);
 
@@ -170,7 +170,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       PT_YIELD(&pt);
     }
     sleep_counter++;
-    printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
+    // printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
   }
   
   

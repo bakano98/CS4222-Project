@@ -1,6 +1,6 @@
 /*
-* CS4222/5422: Assignment 3b
-* Perform neighbour discovery
+* CS4222/5422: Group Project
+* Slave Node. This is the node that performs the light sensing
 */
 
 #include "contiki.h"
@@ -72,7 +72,6 @@ typedef struct {
 static struct rtimer rt;
 
 // Protothread variable
-static struct pt pt;
 static struct pt light_pt;
 
 // Structure holding the data to be transmitted
@@ -183,7 +182,6 @@ send_light_data(const linkaddr_t *dest) {
 
 
 // Function called after reception of a packet
-// Right now, it is always-on so it's not very good for power consumption -- how can we improve this?
 void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest) 
 {
   // Check if the received packet size matches with what we expect it to be
@@ -334,86 +332,6 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
   PT_END(&light_pt);
 }
 
-//   printf("Sleep time over\n");
-//   PT_END(&light_pt);
-// }
-
-// Scheduler function for the sender of neighbour discovery packets
-char sender_scheduler(struct rtimer *t, void *ptr) {
- 
-  static uint16_t i = 0;
-  static int sleep_counter = 0;
-  static int sc;
-  static int j;
-  static int info;
-  // Begin the protothread
-  PT_BEGIN(&pt);
-
-  // Get the current time stamp
-  curr_timestamp = clock_time();
-
-  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", curr_timestamp, curr_timestamp / CLOCK_SECOND, 
-  ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
-
-  start_clock_time =  curr_timestamp;
-  
-  // total sleep for 0.9s, wake for 0.1s in a 1s period
-  while(1){
-    sc = sleep_counter % 9;
-    NETSTACK_RADIO.off();
-    for (j = 0; j < sc; j++) {
-      printf(" Sleep for %d slots first before doing SEND routine\n", sc);
-      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-      PT_YIELD(&pt);
-    }
-
-    // radio on
-    NETSTACK_RADIO.on();
-
-    // send NUM_SEND number of neighbour discovery beacon packets
-    for(i = 0; i < NUM_SEND; i++){
-
-     
-      // Initialize the nullnet module with information of packet to be trasnmitted
-      nullnet_buf = (uint8_t *)&data_packet; //data transmitted
-      nullnet_len = sizeof(data_packet); //length of data transmitted
-
-      data_packet.seq++;
-      
-      curr_timestamp = clock_time();
-      
-      data_packet.timestamp = curr_timestamp;
-
-      // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
-
-      NETSTACK_NETWORK.output(&light_addr); //Packet transmission
-      
-
-      // wait for WAKE_TIME before sending the next packet
-      if(i != (NUM_SEND - 1)){
-
-        rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
-        PT_YIELD(&pt);
-      
-      }
-   
-    }
-
-    NETSTACK_RADIO.off();
-    info = 9 - sc;
-    for (j = 9 - sc; j > 0; j--) {
-      printf(" Sleep for %d slots first before going into NEXT routine\n", info);
-      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-      PT_YIELD(&pt);
-    }
-    sleep_counter++;
-    printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
-  }
-  
-  
-  PT_END(&pt);
-}
-
 
 // Main thread that handles the neighbour discovery process
 PROCESS_THREAD(nbr_discovery_process, ev, data)
@@ -441,9 +359,6 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
     printf("============ This is the light sensing node ============\n\n");
     init_opt_reading();
     rtimer_set(&rt, RTIMER_NOW() + RTIMER_SECOND, 1,  (rtimer_callback_t)schedule_sleep, NULL);
-  } else {
-    // Start sender in one millisecond.
-    rtimer_set(&rt, RTIMER_NOW() + (RTIMER_SECOND / 1000), 1, (rtimer_callback_t)sender_scheduler, NULL);
   }
 
   PROCESS_END();
