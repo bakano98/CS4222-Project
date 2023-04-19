@@ -31,8 +31,8 @@
 #define NUM_SEND 2
 
 #define RSSI_WINDOW 5 // the number of rssi_values we want to keep
-#define IN_PROXIMITY_THRESHOLD 10
-#define OUT_OF_PROXIMITY_THRESHOLD 10
+#define IN_PROXIMITY_THRESHOLD 15
+#define OUT_OF_PROXIMITY_THRESHOLD 30
 #define REQ 12345678
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
