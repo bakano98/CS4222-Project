@@ -41,7 +41,10 @@ linkaddr_t dest_addr;
 /* WJ: link address = 0012.4b00.12b9.6687 = {{0x00, 0x12, 0x4b, 0x00, 0x12, 0xb9, 0x66, 0x87}} */
 /* CH: link address = 0012.4b00.1665.f587 = {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}} */
 
+//================ UPDATE THIS TO THE CORRECT ADDR =================
 static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}}; // modify this to change the light-sensing node
+//=================================================================
+
 static int sync_flag = FALSE;
 static int req_flag = FALSE;
 static int seq = 0;
