@@ -21,7 +21,8 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 #define TRUE 1
 #define FALSE 0
-
+#define DETECT 1
+#define ABSENT 0
 
 // Configures the wake-up timer for neighbour discovery 
 #define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
@@ -64,6 +65,7 @@ typedef struct {
   unsigned long out_of_prox_since; //the first timestamp where it is out-of-proximity
   short rssi_values[RSSI_WINDOW];
   int rssi_ptr;
+  bool state;
 } packet_store_struct;
 
 typedef struct {
@@ -240,9 +242,10 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         
         curr->in_proximity_since = -1;
         curr->out_of_prox_since = -1;
-
+        curr->state = ABSENT;
         curr->rssi_ptr = 0;
         curr->src_id = received_packet_data.src_id;
+
         clear_rssi_values(curr->rssi_values);
       }
 
@@ -258,12 +261,10 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         } 
 
         unsigned long time_diff = curr_timestamp - curr->in_proximity_since;
-        if (time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+        if (curr->state != DETECT && time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
           printf("%3lu.%03lu DETECT %ld\n", curr->in_proximity_since / CLOCK_SECOND, ((curr->in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
           // keep sending while data is being requested from master
-          if (req_flag) {
-            send_light_data(src);
-          }
+          curr->state = DETECT;
         } 
 
       } else {
@@ -273,12 +274,18 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         } 
 
         unsigned long time_diff = curr_timestamp - curr->out_of_prox_since;
-        if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
+        if (curr->state != ABSENT && time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
           printf("%3lu.%03lu ABSENT %ld\n", curr->out_of_prox_since / CLOCK_SECOND, ((curr->out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
+          curr->state = ABSENT;
           node_mem_map[node_slot] = FALSE;
         } 
 
       }
+
+      if (curr->state == DETECT && req_flag) {
+        send_light_data(src);
+      }
+      
     }
 
   }
