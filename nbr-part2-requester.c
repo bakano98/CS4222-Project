@@ -25,9 +25,9 @@
 #define ABSENT 0
 
 // Configures the wake-up timer for neighbour discovery 
-#define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
+#define SLOT_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
 #define SLEEP_CYCLE  9        	      // 0 for never sleep
-#define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
+#define TOTAL_SLOTS SLEEP_CYCLE + 1
 #define NUM_SEND 2
 
 #define RSSI_WINDOW 5 // the number of rssi_values we want to keep
@@ -96,7 +96,7 @@ static void clear_rssi_values(short *rssi_values) {
 }
 
 /*---------------------------------------------------------------------------*/
-// duty cycle = WAKE_TIME / (WAKE_TIME + SLEEP_SLOT * SLEEP_CYCLE)
+// duty cycle = SLOT_TIME / (SLOT_TIME + SLOT_TIME * SLEEP_CYCLE)
 /*---------------------------------------------------------------------------*/
 
 // sender timer implemented using rtimer
@@ -229,10 +229,10 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
   // total sleep for 0.9s, wake for 0.1s in a 1s period
   NETSTACK_RADIO.off();
   while(1){
-    sc = sleep_counter % 10; // -> 0 ~ 9 slots only.
+    sc = sleep_counter % TOTAL_SLOTS; // -> 0 ~ 9 slots only.
     for (j = 0; j < sc; j++) {
       // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
-      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
+      rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
       PT_YIELD(&pt);
     }
 
@@ -257,9 +257,9 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
       NETSTACK_NETWORK.output(&light_addr); //Packet transmission
       
-      // wait for WAKE_TIME before sending the next packet
+      // wait for SLOT_TIME before sending the next packet
       if(i != (NUM_SEND - 1)){
-        rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
+        rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
         PT_YIELD(&pt);
       }
   
@@ -267,9 +267,9 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 
     NETSTACK_RADIO.off();
     // info = 9 - sc;
-    for (j = 9 - sc; j > 0; j--) {
+    for (j = SLEEP_CYCLE - sc; j > 0; j--) {
       // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
-      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t) sender_scheduler, ptr);
+      rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t) sender_scheduler, ptr);
       PT_YIELD(&pt);
     }
  

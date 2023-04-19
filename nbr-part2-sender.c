@@ -24,13 +24,11 @@
 #define ABSENT 0
 
 // Configures the wake-up timer for neighbour discovery 
-#define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
+#define SLOT_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
 #define SLEEP_CYCLE  9        	      // 0 for never sleep
-#define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
 #define SAMPLING_INTERVAL RTIMER_SECOND * 3 // 30s sampling interval
 
 #define MAX_NODES 4 // modify to specify max number of nodes that can be in proximity
-#define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
 #define RSSI_WINDOW 5 // the number of rssi_values we want to keep
 #define IN_PROXIMITY_THRESHOLD 15
 #define OUT_OF_PROXIMITY_THRESHOLD 30
@@ -75,7 +73,7 @@ typedef struct {
 } light_data_arr;
 
 /*---------------------------------------------------------------------------*/
-// duty cycle = WAKE_TIME / (WAKE_TIME + SLEEP_SLOT * SLEEP_CYCLE)
+// duty cycle = SLOT_TIME / (SLOT_TIME + SLOT_TIME * SLEEP_CYCLE)
 /*---------------------------------------------------------------------------*/
 
 // sender timer implemented using rtimer
@@ -312,9 +310,9 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
 
       NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
       
-      // wait for WAKE_TIME before going into sleep routine
+      // wait for SLOT_TIME before going into sleep routine
       if(i != (NUM_SEND - 1)){
-        rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)schedule_sleep, ptr);
+        rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)schedule_sleep, ptr);
         PT_YIELD(&light_pt);
       }
    
@@ -322,9 +320,9 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
 
     // sleep for 9 slots
     NETSTACK_RADIO.off();
-    for (j = 9; j > 0; j--) {
+    for (j = SLEEP_CYCLE; j > 0; j--) {
       // printf(" Sleep for 9 slots first before going into NEXT routine\n");
-      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
+      rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)schedule_sleep, ptr);
       PT_YIELD(&light_pt);
     }
     // printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
