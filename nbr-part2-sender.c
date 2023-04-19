@@ -331,9 +331,11 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
     for (i = 0; i < MAX_NODES; i++) {
       if (node_mem_map[i]) {
         unsigned long time_diff = (curr_timestamp - node_tracker[i].prev_discovery_time)/CLOCK_SECOND;
-        if (time_diff >= OUT_OF_PROXIMITY_THRESHOLD && node_tracker[i].state != ABSENT) {
-          printf("%3lu.%03lu ABSENT %ld\n", node_tracker[i].prev_discovery_time / CLOCK_SECOND, ((node_tracker[i].prev_discovery_time % CLOCK_SECOND)*1000) / CLOCK_SECOND, node_tracker[i].src_id);
-          node_tracker[i].state = ABSENT;
+        if (time_diff >= OUT_OF_PROXIMITY_THRESHOLD) {
+          if (node_tracker[i].state != ABSENT) {
+            printf("%3lu.%03lu ABSENT %ld\n", node_tracker[i].prev_discovery_time / CLOCK_SECOND, ((node_tracker[i].prev_discovery_time % CLOCK_SECOND)*1000) / CLOCK_SECOND, node_tracker[i].src_id);
+            node_tracker[i].state = ABSENT;
+          }
           node_mem_map[i] = FALSE;
         }
       }
