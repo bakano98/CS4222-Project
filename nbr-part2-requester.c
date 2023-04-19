@@ -28,15 +28,12 @@
 #define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
 #define SLEEP_CYCLE  9        	      // 0 for never sleep
 #define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
-#define SAMPLING_INTERVAL RTIMER_SECOND * 5 // 30s sampling interval
+#define NUM_SEND 2
 
-#define MAX_NODES 5 // modify to specify max number of nodes that can be in proximity
-#define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
 #define RSSI_WINDOW 5 // the number of rssi_values we want to keep
 #define IN_PROXIMITY_THRESHOLD 10
 #define OUT_OF_PROXIMITY_THRESHOLD 10
 #define REQ 12345678
-#define TOLERANCE 9 // tolerance for delay
 
 // For neighbour discovery, we would like to send message to everyone. We use Broadcast address:
 linkaddr_t dest_addr;
@@ -49,7 +46,6 @@ static int sync_flag = FALSE;
 static int req_flag = FALSE;
 static int seq = 0;
 
-#define NUM_SEND 2
 /*---------------------------------------------------------------------------*/
 typedef struct {
   unsigned long src_id;
