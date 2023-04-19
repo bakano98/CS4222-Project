@@ -21,6 +21,8 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 #define TRUE 1
 #define FALSE 0
+#define DETECT 1
+#define ABSENT 0
 
 // Configures the wake-up timer for neighbour discovery 
 #define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
@@ -46,7 +48,6 @@ static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5
 static int sync_flag = FALSE;
 static int req_flag = FALSE;
 static int seq = 0;
-static int has_sent = FALSE;
 
 #define NUM_SEND 2
 /*---------------------------------------------------------------------------*/
@@ -73,6 +74,7 @@ typedef struct {
 /*========================start rolling rssi stuff========================*/
 static float get_average_rssi();
 static void clear_rssi_values();
+static void on_absent_state();
 /*---------------------------------------------------------------------------*/
 static float get_average_rssi(short *rssi_values) {
   int num_valid_rssi = 0;
@@ -113,12 +115,21 @@ unsigned long curr_timestamp;
 // save timestamp when it started sending
 unsigned long start_clock_time;
 
-// save previous time it discovered the neighbour
+// save the previous time it discovered the neighbour
 unsigned long prev_discovery_timestamp = -1;
 
 //struct holding information about node we have connected with
 static packet_store_struct slave_info;
 
+static bool state = ABSENT;
+
+
+// reinitialize some variables upon transitioning to absent_state
+static void on_absent_state() {
+  slave_info.src_id = -1;
+  req_flag = FALSE;
+  state = ABSENT;
+}
 
 // Starts the main contiki neighbour discovery process
 PROCESS(nbr_discovery_process, "cc2650 neighbour discovery process");
@@ -131,6 +142,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 { 
   signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
   curr_timestamp = clock_time();
+  prev_discovery_timestamp = curr_timestamp;
 
 
   if (len == sizeof(data_packet)) {
@@ -138,13 +150,13 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     memcpy(&received_packet_data, data, len);
     printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
 
-    // if (received_packet_data.seq % 2 != 0) {
-    //   printf("Attempting to sync\n");
-    //   sync_flag = TRUE;
-    //   printf("Set sync flag\n");
-    // }
+    if (!sync_flag && received_packet_data.seq % 2 != 0) {
+      printf("Attempting to sync\n");
+      sync_flag = TRUE;
+      printf("Set sync flag\n");
+    }
 
-    if (received_packet_data.src_id != slave_info.src_id) { //new slave detected
+    if (received_packet_data.src_id != slave_info.src_id) { //new sender detected
       slave_info.src_id = received_packet_data.src_id;
       slave_info.in_proximity_since = -1;
       slave_info.out_of_prox_since = -1;
@@ -155,16 +167,17 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     slave_info.rssi_values[slave_info.rssi_ptr] = recv_rssi;
     slave_info.rssi_ptr = (slave_info.rssi_ptr + 1) % RSSI_WINDOW;
 
-    if (get_average_rssi(slave_info.rssi_values) > -65) {
+    if (get_average_rssi(slave_info.rssi_values) > -65) { //in proximity
       if (slave_info.in_proximity_since == -1) {
         slave_info.in_proximity_since = curr_timestamp;
         slave_info.out_of_prox_since = -1;
       } 
 
       unsigned long time_diff = curr_timestamp - slave_info.in_proximity_since;
-      if (time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+      if (state != DETECT && time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
         printf("%3lu.%03lu DETECT %ld\n", slave_info.in_proximity_since / CLOCK_SECOND, ((slave_info.in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
-        req_flag = has_sent == FALSE ? TRUE : FALSE;
+        req_flag = TRUE;
+        state = DETECT;        
       } 
     } else {
       if (slave_info.out_of_prox_since == -1) {
@@ -172,17 +185,15 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
         slave_info.in_proximity_since = -1;
       } 
       unsigned long time_diff = curr_timestamp - slave_info.out_of_prox_since;
-      if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
+      if (state != ABSENT && time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
         printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
-        slave_info.src_id = -1;
-        req_flag = FALSE;
-        has_sent = FALSE;
+        on_absent_state();
       }       
     }
 
   } else {
     light_data_arr received_data;
-    has_sent = TRUE; // received data, no more asking
+    req_flag = FALSE; // received data, no more asking
     // Copy the content of packet into the data structure
     
     memcpy(&received_data, data, len);
@@ -195,125 +206,91 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 }
 
 
-// Scheduler function for the sender of neighbour discovery packets
+// Scheduler function for the sending of neighbour discovery packets
 char sender_scheduler(struct rtimer *t, void *ptr) {
  
   static uint16_t i = 0;
   static int sleep_counter = 0;
   static int sc;
   static int j;
+  static unsigned long scheduler_curr_timestamp;
   // static int info;
   // Begin the protothread
+
+  //take curr_time after each rtimer callback
+  scheduler_curr_timestamp = clock_time();
   PT_BEGIN(&pt);
 
-  // Get the current time stamp
-  curr_timestamp = clock_time();
 
-  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", curr_timestamp, curr_timestamp / CLOCK_SECOND, 
-  ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", scheduler_curr_timestamp, scheduler_curr_timestamp / CLOCK_SECOND, 
+  ((scheduler_curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
 
-  start_clock_time =  curr_timestamp;
+  start_clock_time =  scheduler_curr_timestamp;
   
   // total sleep for 0.9s, wake for 0.1s in a 1s period
-  NETSTACK_RADIO.on();
+  NETSTACK_RADIO.off();
   while(1){
-    if (!sync_flag) {
-      sc = sleep_counter % 9; // -> 0 ~ 9 slots only.
-      NETSTACK_RADIO.off();
-      for (j = 0; j < sc; j++) {
-        // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
-        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-        PT_YIELD(&pt);
+    sc = sleep_counter % 9; // -> 0 ~ 9 slots only.
+    for (j = 0; j < sc; j++) {
+      // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
+      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
+      PT_YIELD(&pt);
+    }
+
+    // radio on
+    NETSTACK_RADIO.on();
+
+    // send NUM_SEND number of neighbour discovery beacon packets
+    for(i = 0; i < NUM_SEND; i++){
+
+      // Initialize the nullnet module with information of packet to be trasnmitted
+      nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+      nullnet_len = sizeof(data_packet); //length of data transmitted
+      if (req_flag) {
+        data_packet.seq = REQ;
+      } else {
+        data_packet.seq = seq;
+        seq++;
       }
 
-      // radio on
-      NETSTACK_RADIO.on();
+      data_packet.timestamp = scheduler_curr_timestamp;
 
-      // send NUM_SEND number of neighbour discovery beacon packets
-      for(i = 0; i < NUM_SEND; i++){
-
-        // Initialize the nullnet module with information of packet to be trasnmitted
-        nullnet_buf = (uint8_t *)&data_packet; //data transmitted
-        nullnet_len = sizeof(data_packet); //length of data transmitted
-        if (req_flag) {
-          data_packet.seq = REQ;
-        } else {
-          data_packet.seq = seq;
-          seq++;
-        }
-        curr_timestamp = clock_time();
-        data_packet.timestamp = curr_timestamp;
-
-        // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
-        NETSTACK_NETWORK.output(&light_addr); //Packet transmission
-        
-        // wait for WAKE_TIME before sending the next packet
-        if(i != (NUM_SEND - 1)){
-          rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
-          PT_YIELD(&pt);
-        }
-    
-      }
-
-      NETSTACK_RADIO.off();
-      // info = 9 - sc;
-      for (j = 9 - sc; j > 0; j--) {
-        // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
-        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-        PT_YIELD(&pt);
-      }
-    } 
-    
-    // else {
-    //   // received sync packet, so we know it should be in the correct slot
+      // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+      NETSTACK_NETWORK.output(&light_addr); //Packet transmission
       
-    //   sc = sleep_counter % TOLERANCE;
-    //   NETSTACK_RADIO.off();
-    //   for (j = 0; j < sc; j++) {
-    //     // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
-    //     rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-    //     PT_YIELD(&pt);
-    //   }
+      // wait for WAKE_TIME before sending the next packet
+      if(i != (NUM_SEND - 1)){
+        rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
+        PT_YIELD(&pt);
+      }
+  
+    }
 
-    //   NETSTACK_RADIO.on();
+    NETSTACK_RADIO.off();
+    // info = 9 - sc;
+    for (j = 9 - sc; j > 0; j--) {
+      // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
+      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t) sender_scheduler, ptr);
+      PT_YIELD(&pt);
+    }
+ 
+    if (!sync_flag) {
+      sleep_counter++; 
+    }
 
-    //   // send NUM_SEND number of neighbour discovery beacon packets
-    //   for(i = 0; i < NUM_SEND; i++){
+    unsigned long time_diff = scheduler_curr_timestamp - prev_discovery_timestamp;
 
-    //     // Initialize the nullnet module with information of packet to be trasnmitted
-    //     nullnet_buf = (uint8_t *)&data_packet; //data transmitted
-    //     nullnet_len = sizeof(data_packet); //length of data transmitted
-    //     if (req_flag) {
-    //       data_packet.seq = REQ;
-    //     } else {
-    //       data_packet.seq = seq;
-    //       seq++;
-    //     }
-    //     curr_timestamp = clock_time();
-    //     data_packet.timestamp = curr_timestamp;
+    if (time_diff/CLOCK_SECOND > 5) { //maybe somehow got out of sync
+      sync_flag = FALSE;
+    }
 
-    //     // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
-    //     NETSTACK_NETWORK.output(&light_addr); //Packet transmission
-        
-    //     // wait for WAKE_TIME before sending the next packet
-    //     if(i != (NUM_SEND - 1)){
-    //       rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
-    //       PT_YIELD(&pt);
-    //     }
-    
-    //   }
-
-    //   NETSTACK_RADIO.off();
-    //   // sleep for the remaining slots
-    //   for (j = 9 - sc; j > 0; j--) {
-    //     // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
-    //     rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-    //     PT_YIELD(&pt);
-    //   }
-    // } 
-
-    // printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
-    sleep_counter++; 
+    //no packets received for good 30 seconds -> other device might have died
+    if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) { 
+      if (state != ABSENT) {
+        printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);        
+      }
+      on_absent_state();
+    } 
   }
   PT_END(&pt);
 }
