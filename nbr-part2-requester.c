@@ -115,14 +115,14 @@ unsigned long start_clock_time;
 unsigned long prev_discovery_timestamp = -1;
 
 //struct holding information about node we have connected with
-static packet_store_struct slave_info;
+static packet_store_struct sender_info;
 
 static bool state = ABSENT;
 
 
 // reinitialize some variables upon transitioning to absent_state
 static void on_absent_state() {
-  slave_info.src_id = -1;
+  sender_info.src_id = -1;
   req_flag = FALSE;
   state = ABSENT;
 }
@@ -152,37 +152,37 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
       printf("Set sync flag\n");
     }
 
-    if (received_packet_data.src_id != slave_info.src_id) { //new sender detected
-      slave_info.src_id = received_packet_data.src_id;
-      slave_info.in_proximity_since = -1;
-      slave_info.out_of_prox_since = -1;
-      clear_rssi_values(slave_info.rssi_values);
-      slave_info.rssi_ptr = 0;
+    if (received_packet_data.src_id != sender_info.src_id) { //new sender detected
+      sender_info.src_id = received_packet_data.src_id;
+      sender_info.in_proximity_since = -1;
+      sender_info.out_of_prox_since = -1;
+      clear_rssi_values(sender_info.rssi_values);
+      sender_info.rssi_ptr = 0;
     }
 
-    slave_info.rssi_values[slave_info.rssi_ptr] = recv_rssi;
-    slave_info.rssi_ptr = (slave_info.rssi_ptr + 1) % RSSI_WINDOW;
+    sender_info.rssi_values[sender_info.rssi_ptr] = recv_rssi;
+    sender_info.rssi_ptr = (sender_info.rssi_ptr + 1) % RSSI_WINDOW;
 
-    if (get_average_rssi(slave_info.rssi_values) > -65) { //in proximity
-      if (slave_info.in_proximity_since == -1) {
-        slave_info.in_proximity_since = curr_timestamp;
-        slave_info.out_of_prox_since = -1;
+    if (get_average_rssi(sender_info.rssi_values) > -65) { //in proximity
+      if (sender_info.in_proximity_since == -1) {
+        sender_info.in_proximity_since = curr_timestamp;
+        sender_info.out_of_prox_since = -1;
       } 
 
-      unsigned long time_diff = curr_timestamp - slave_info.in_proximity_since;
+      unsigned long time_diff = curr_timestamp - sender_info.in_proximity_since;
       if (state != DETECT && time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
-        printf("%3lu.%03lu DETECT %ld\n", slave_info.in_proximity_since / CLOCK_SECOND, ((slave_info.in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
+        printf("%3lu.%03lu DETECT %ld\n", sender_info.in_proximity_since / CLOCK_SECOND, ((sender_info.in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, sender_info.src_id);
         req_flag = TRUE;
         state = DETECT;        
       } 
     } else {
-      if (slave_info.out_of_prox_since == -1) {
-        slave_info.out_of_prox_since = curr_timestamp;
-        slave_info.in_proximity_since = -1;
+      if (sender_info.out_of_prox_since == -1) {
+        sender_info.out_of_prox_since = curr_timestamp;
+        sender_info.in_proximity_since = -1;
       } 
-      unsigned long time_diff = curr_timestamp - slave_info.out_of_prox_since;
+      unsigned long time_diff = curr_timestamp - sender_info.out_of_prox_since;
       if (state != ABSENT && time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
-        printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);
+        printf("%3lu.%03lu ABSENT %ld\n", sender_info.out_of_prox_since / CLOCK_SECOND, ((sender_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, sender_info.src_id);
         on_absent_state();
       }       
     }
@@ -283,7 +283,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
     //no packets received for good 30 seconds -> other device might have died
     if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) { 
       if (state != ABSENT) {
-        printf("%3lu.%03lu ABSENT %ld\n", prev_discovery_timestamp / CLOCK_SECOND, ((prev_discovery_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);        
+        printf("%3lu.%03lu ABSENT %ld\n", prev_discovery_timestamp / CLOCK_SECOND, ((prev_discovery_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND, sender_info.src_id);        
       }
       on_absent_state();
     } 
