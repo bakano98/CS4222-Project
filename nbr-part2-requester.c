@@ -230,49 +230,135 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
   // total sleep for 0.9s, wake for 0.1s in a 1s period
   NETSTACK_RADIO.off();
   while(1){
-    sc = sleep_counter % 9; // -> 0 ~ 9 slots only.
-    for (j = 0; j < sc; j++) {
-      // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
-      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-      PT_YIELD(&pt);
-    }
-
-    // radio on
-    NETSTACK_RADIO.on();
-
-    // send NUM_SEND number of neighbour discovery beacon packets
-    for(i = 0; i < NUM_SEND; i++){
-
-      // Initialize the nullnet module with information of packet to be trasnmitted
-      nullnet_buf = (uint8_t *)&data_packet; //data transmitted
-      nullnet_len = sizeof(data_packet); //length of data transmitted
-      if (req_flag) {
-        data_packet.seq = REQ;
-      } else {
-        data_packet.seq = seq;
-        seq++;
-      }
-
-      data_packet.timestamp = scheduler_curr_timestamp;
-
-      // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
-      NETSTACK_NETWORK.output(&light_addr); //Packet transmission
-      
-      // wait for WAKE_TIME before sending the next packet
-      if(i != (NUM_SEND - 1)){
-        rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
+    // not synchronised yet, find the slot such that they discover each other.
+    if (!sync_flag) {
+      sc = sleep_counter % 9; // -> 0 ~ 9 slots only.
+      for (j = 0; j < sc; j++) {
+        // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
+        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
         PT_YIELD(&pt);
       }
-  
+
+      // radio on
+      NETSTACK_RADIO.on();
+
+      // send NUM_SEND number of neighbour discovery beacon packets
+      for(i = 0; i < NUM_SEND; i++){
+
+        // Initialize the nullnet module with information of packet to be trasnmitted
+        nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+        nullnet_len = sizeof(data_packet); //length of data transmitted
+        if (req_flag) {
+          data_packet.seq = REQ;
+        } else {
+          data_packet.seq = seq;
+          seq++;
+        }
+
+        data_packet.timestamp = scheduler_curr_timestamp;
+
+        // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+        NETSTACK_NETWORK.output(&light_addr); //Packet transmission
+        
+        // wait for WAKE_TIME before sending the next packet
+        if(i != (NUM_SEND - 1)){
+          rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
+          PT_YIELD(&pt);
+        }
+    
+      }
+
+      NETSTACK_RADIO.off();
+      // info = 9 - sc;
+      for (j = 9 - sc; j > 0; j--) {
+        // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
+        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t) sender_scheduler, ptr);
+        PT_YIELD(&pt);
+      }
+      sleep_counter++; 
+    } 
+    // should now be synchronised. we just send in first slot, sleep for remaining 9
+    else {
+      NETSTACK_RADIO.on();
+
+      // send NUM_SEND number of neighbour discovery beacon packets
+      for(i = 0; i < NUM_SEND; i++){
+
+        // Initialize the nullnet module with information of packet to be trasnmitted
+        nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+        nullnet_len = sizeof(data_packet); //length of data transmitted
+        if (req_flag) {
+          data_packet.seq = REQ;
+        } else {
+          data_packet.seq = seq;
+          seq++;
+        }
+
+        data_packet.timestamp = scheduler_curr_timestamp;
+
+        // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+        NETSTACK_NETWORK.output(&light_addr); //Packet transmission
+        
+        // wait for WAKE_TIME before sending the next packet
+        if(i != (NUM_SEND - 1)){
+          rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
+          PT_YIELD(&pt);
+        }
+    
+      }
+
+      NETSTACK_RADIO.off();
+
+      for (j = 9; j > 0; j--) {
+        // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
+        rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t) sender_scheduler, ptr);
+        PT_YIELD(&pt);
+      }
     }
 
-    NETSTACK_RADIO.off();
-    // info = 9 - sc;
-    for (j = 9 - sc; j > 0; j--) {
-      // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
-      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t) sender_scheduler, ptr);
-      PT_YIELD(&pt);
-    }
+    // sc = sleep_counter % 9; // -> 0 ~ 9 slots only.
+    // for (j = 0; j < sc; j++) {
+    //   // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
+    //   rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
+    //   PT_YIELD(&pt);
+    // }
+
+    // // radio on
+    // NETSTACK_RADIO.on();
+
+    // // send NUM_SEND number of neighbour discovery beacon packets
+    // for(i = 0; i < NUM_SEND; i++){
+
+    //   // Initialize the nullnet module with information of packet to be trasnmitted
+    //   nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+    //   nullnet_len = sizeof(data_packet); //length of data transmitted
+    //   if (req_flag) {
+    //     data_packet.seq = REQ;
+    //   } else {
+    //     data_packet.seq = seq;
+    //     seq++;
+    //   }
+
+    //   data_packet.timestamp = scheduler_curr_timestamp;
+
+    //   // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+    //   NETSTACK_NETWORK.output(&light_addr); //Packet transmission
+      
+    //   // wait for WAKE_TIME before sending the next packet
+    //   if(i != (NUM_SEND - 1)){
+    //     rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
+    //     PT_YIELD(&pt);
+    //   }
+  
+    // }
+
+    // NETSTACK_RADIO.off();
+    // // info = 9 - sc;
+    // for (j = 9 - sc; j > 0; j--) {
+    //   // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
+    //   rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t) sender_scheduler, ptr);
+    //   PT_YIELD(&pt);
+    // }
  
     // else {
     //   // received sync packet, so we know it should be in the correct slot
