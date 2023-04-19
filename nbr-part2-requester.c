@@ -226,7 +226,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
   // total sleep for 0.9s, wake for 0.1s in a 1s period
   NETSTACK_RADIO.off();
   while(1){
-    sc = sleep_counter % 9; // -> 0 ~ 9 slots only.
+    sc = sleep_counter % 10; // -> 0 ~ 9 slots only.
     for (j = 0; j < sc; j++) {
       // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
       rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
