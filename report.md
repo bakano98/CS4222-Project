@@ -246,9 +246,9 @@ Figure 4 shows an example of how neighbour discovery is achieved. Assuming **SEN
 
 Since **REQUESTER** has a staggering wake slot, in cycle 2, **REQUESTER** and **SENDER** wake slot synchronises and wakes up at the same slot (slot 12) and discover each other.
 
-We implemented a synchronisation mechanism that is shown in the 3rd cycle of Figure 4. When both **REQUESTER** and **SENDER** aligns their wake slot with each other, **REQUESTER** stops staggering their wake slot, and instead reverts to the simplest logic: waking up at the first slot, then sleeping for the remaining 9. This ensures synchronisation of both **REQUESTER** and **SENDER** wake times.
+We implemented a synchronisation mechanism that is shown in the 3rd cycle of Figure 4. When both **REQUESTER** and **SENDER** aligns their wake slot (in cycle 2) with each other, **REQUESTER** stops staggering their wake slot, and instead reverts to the simplest logic (that follows the **SENDER**'s logic) waking up at the first slot, then sleeping for the remaining 9. This ensures synchronisation of both **REQUESTER** and **SENDER** wake times.
 
-The logic for this algorithm follows the Lowest Common Multiple logic. The wake slot for **REQUESTER** is staggered until it matches up with **SENDER**. The finer details of the **SENDER** and **REQUESTER** are described in the subsections below.
+The logic/inspiration for this algorithm follows the Lowest Common Multiple logic. The wake slot for **REQUESTER** is staggered until it matches up with **SENDER**. The finer details of the **SENDER** and **REQUESTER** are described in the subsections below.
 
 #### **SENDER**
 
