@@ -2,7 +2,6 @@
 * CS4222/5422: Group Project
 * Light Sensing Node. This is the node that performs the light sensing.
 */
-
 #include "contiki.h"
 #include "net/netstack.h"
 #include "net/nullnet/nullnet.h"
@@ -33,8 +32,8 @@
 #define MAX_NODES 4 // modify to specify max number of nodes that can be in proximity
 #define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
 #define RSSI_WINDOW 5 // the number of rssi_values we want to keep
-#define IN_PROXIMITY_THRESHOLD 10
-#define OUT_OF_PROXIMITY_THRESHOLD 10
+#define IN_PROXIMITY_THRESHOLD 15
+#define OUT_OF_PROXIMITY_THRESHOLD 30
 #define REQ 12345678
 
 
