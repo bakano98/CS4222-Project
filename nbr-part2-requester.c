@@ -274,55 +274,6 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
       PT_YIELD(&pt);
     }
  
-    // else {
-    //   // received sync packet, so we know it should be in the correct slot
-      
-    //   sc = sleep_counter % TOLERANCE;
-    //   NETSTACK_RADIO.off();
-    //   for (j = 0; j < sc; j++) {
-    //     // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
-    //     rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-    //     PT_YIELD(&pt);
-    //   }
-
-    //   NETSTACK_RADIO.on();
-
-    //   // send NUM_SEND number of neighbour discovery beacon packets
-    //   for(i = 0; i < NUM_SEND; i++){
-
-    //     // Initialize the nullnet module with information of packet to be trasnmitted
-    //     nullnet_buf = (uint8_t *)&data_packet; //data transmitted
-    //     nullnet_len = sizeof(data_packet); //length of data transmitted
-    //     if (req_flag) {
-    //       data_packet.seq = REQ;
-    //     } else {
-    //       data_packet.seq = seq;
-    //       seq++;
-    //     }
-    //     curr_timestamp = clock_time();
-    //     data_packet.timestamp = curr_timestamp;
-
-    //     // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
-    //     NETSTACK_NETWORK.output(&light_addr); //Packet transmission
-        
-    //     // wait for WAKE_TIME before sending the next packet
-    //     if(i != (NUM_SEND - 1)){
-    //       rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
-    //       PT_YIELD(&pt);
-    //     }
-    
-    //   }
-
-    //   NETSTACK_RADIO.off();
-    //   // sleep for the remaining slots
-    //   for (j = 9 - sc; j > 0; j--) {
-    //     // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
-    //     rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)sender_scheduler, ptr);
-    //     PT_YIELD(&pt);
-    //   }
-    // } 
-
-    // printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
     if (!sync_flag) {
       sleep_counter++; 
     }
