@@ -359,6 +359,14 @@ PROCESS_THREAD(nbr_discovery_process, ev, data)
     printf("============ This is the light sensing node ============\n\n");
     init_opt_reading();
     rtimer_set(&rt, RTIMER_NOW() + RTIMER_SECOND, 1,  (rtimer_callback_t)schedule_sleep, NULL);
+  } else {
+    printf("============ ERROR ============\n\n");
+    printf("You have flashed this device as the light sensing node\n\n");
+    printf("but you have not changed the light_addr in line46 to  \n\n");
+    printf("this devices's IP address \n\n");
+
+    printf("Please also check that you have changed the ip address \n\n");
+    printf("in nbr-part2-requester.c to use this device's IP address \n\n");
   }
 
   PROCESS_END();
