@@ -287,7 +287,7 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
     //no packets received for good 30 seconds -> other device might have died
     if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) { 
       if (state != ABSENT) {
-        printf("%3lu.%03lu ABSENT %ld\n", slave_info.out_of_prox_since / CLOCK_SECOND, ((slave_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);        
+        printf("%3lu.%03lu ABSENT %ld\n", prev_discovery_timestamp / CLOCK_SECOND, ((prev_discovery_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND, slave_info.src_id);        
       }
       on_absent_state();
     } 
