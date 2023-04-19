@@ -218,58 +218,7 @@ Based on our tests, the maximum 2-way discovery latency is around 9.8s. The theo
 
 ---
 
-## Part 2: Delay-tolerant Sensing and Communication
-
-Delay-tolerant networks (DTNs) can handle long or variable delays, limited or intermittent connectivity, and often have limited bandwidth. They are useful in situations where there is no direct end-to-end communication path, such as in remote sensor networks or disaster scenarios. Apple’s AirTag and Find-my network is an example of a DTN, where nearby Apple devices act as relays to track the AirTag’s location using Bluetooth and ultra-wideband technology. This allows AirTag to be located even when out of range of its paired device.
-
-In this project, you will design a basic implementation of such a network. One node would be sensing light readings. Next, one or more sensor tags would discover this light sensing nodes is nearby, and then receieve the accumalated light sensor readings. We describe these task in much greater detail next.
-
-![](./images/project.png)
-
-### TASK 2
-
-Assign one of the SensorTag the task of sampling the light sensors. These light readings should be collected at an interval greater than 30 seconds. Please store last 10 collected light sensor readings in an array. You can refer to the code in the Second assignment on how to sample light sensors.
-
-In the next step, the other sensortag should discover sensor tag with light sensor, and should transfer the collected light sensor readings. However, this transfer process should only start when the sensor tags are “in-proximity”. You can think of proximity as a distance within 3m. More specifically, the transfer should only start when the sensor tags have been in proximity for at-least 15 seconds. Furthermore, the sensor tag should also detect the condition that the sensor tag has moved away (> 3 meters) for 30 seconds or more.
-
-![](./images/statediagram.png)
-
-More specifically, you have to perform the following tasks:
-
-Choose one SensorTag to be responsible for sampling the light sensors.
-Use the code from the Second assignment to sample the light sensors. Set the sampling interval to be greater than 30 seconds.
-Store the last 10 collected light sensor readings in an array.
-In order for the other SensorTags to discover the SensorTag with the light sensor, you can use code written for Task 1. Please also have the additional constraint (Detect that devices are in contact for 15 seconds or more, and secondly discover that a node in proximity has moved away for 30s or more with high probability)
-Once a SensorTag detects that it is in close proximity to the SensorTag with the light sensor (within 3 meters) for a time period > 15 seconds, it has to start the transfer process for light readings.
-The SensorTag with the light sensor should respond by sending the requested array to the requesting SensorTag.
-Your code should output (write to stdout using printf) the time a device first detects another device in the following format:
-
-Timestamp (in seconds) DETECT nodeID
-
-DETECT is a keyword for detection of a NEW node. The fields are separated by a single whitespace. For example:
-
-- 123 DETECT 34567 means that at the 123 seconds, node with ID 34567 is detected and at time 138 (123 + 15) seconds, the device 34567 is still in proximity.
-
-When a node is determined to have moved away, print the information using the following format:
-
-- 345 ABSENT 34567
-
-Therefore, at the 345 seconds, node with ID 34567 moves away and until 375 (345 + 30) seconds, the device 34567 is still NOT in proximity.
-
-Notes:
-
-- The timestamp is a time when another node starts moving near (within ~3m) or starts moving away.
-- DETECT is only printed when another node stays close for at least 15 seconds
-- ABSENT is only printed when another node has moved away at least 30 seconds
-- Please keep the energy consumption for performing the neighbour discovery and other task as low as possible
-
-Finally, after the node has been successfully detected, also print the light sensor readings that were transferred. Please print them as follows:
-
-- “Light: Reading 1, Reading 2, …. , Reading 10”
-
----
-
-## Findings: Part 2
+## Findings: Task 2
 
 The algorithm implemented to ensure node discovery is different from the one we have described in Task 1.
 
@@ -286,7 +235,20 @@ Furthermore, due to the amount of information that needs to be kept track of by 
 
 Given the asymmetrical roles of the devices, the neighbour discovery algorithm used here is also different from Part 1. Both **SENDER** and **REQUESTER** devices implement different algorithms to achieve neighbour discovery within 10 seconds and has a duty cycle of 10%.
 
-In our case, each cycle lasts 1 second, and our nodes are guaranteed to discover each other within 10 cycles.
+The following image shows the description of our algorithm:  
+<p align="center">
+    <img src="./images/algo2.png" /> </br>
+    <em> Figure 4: Details about the algorithm </em>
+</p>
+
+
+Figure 4 shows an example of how neighbour discovery is achieved. Assuming **SENDER** wakes up approximately 1 slot late, **REQUESTER** begins discovery early. This means that their wake slots are out of sync by 1 slot.
+
+Since **REQUESTER** has a staggering wake slot, in cycle 2, **REQUESTER** and **SENDER** wake slot synchronises and wakes up at the same slot (slot 12) and discover each other.
+
+We implemented a synchronisation mechanism that is shown in the 3rd cycle of Figure 4. When both **REQUESTER** and **SENDER** aligns their wake slot with each other, **REQUESTER** stops staggering their wake slot, and instead reverts to the simplest logic: waking up at the first slot, then sleeping for the remaining 9. This ensures synchronisation of both **REQUESTER** and **SENDER** wake times.
+
+The logic for this algorithm follows the Lowest Common Multiple logic. The wake slot for **REQUESTER** is staggered until it matches up with **SENDER**. The finer details of the **SENDER** and **REQUESTER** are described in the subsections below.
 
 #### **SENDER**
 
@@ -296,11 +258,7 @@ Each cycle is segmented into 10 slots. The sender will alway wake up the radio f
 
 Likewise, each cycle is segmented into 10 slots. For this algorithm, we introduce a variable `i` to stagger when the radio should wake up. When the requester first starts up, it turns on the radio at the very first slot, then sleeps for the remaining 9 slots. `i` is increment by 1, staggering the radio wake slot to be the second slot.
 
-Consequently, `i` is incremented, and the radio wake slot is pushed again, until eventually it resets back to the very first slot. This algorithm is described aptly by the figure below:  
-<p align="center">
-    <img src="./images/algo.jpg" /> </br>
-    <em> Figure X: Description of Algorithm </em>
-</p>
+Consequently, `i` is incremented, and the radio wake slot is pushed again, until eventually it resets back to the very first slot. This algorithm is described in Figure 4.
 
 The above algorithm ensures that the SENDER and REQUESTER will eventually find each other within a deterministic 10s (or 10 cycles), while reducing the duty cycle to 10% (from a previous 19%).
 
@@ -313,6 +271,8 @@ Using RSSI, we can estimate the distance between two nodes and determine if they
 To ensure a more robust measurement of proximity, we keep track of the last 5 RSSI values received, and take the average of the values. If the average RSSI is stronger than `-65 dBm`, we consider it to be in proximity. Since there is only 1 sender, each requesting node will keep track of the last 5 RSSI values it received from the sender. For the sender node, it will keep track of 5 RSSI values per requesting node that it detects.
 
 If a device has received an average RSSI reading stronger than `-65 dBm` for at least 15 seconds, then we will print the `DETECT` statement. Consequently, this also begins the data transfer. More is detailed about this [below](#light-sensing-and-data-transfer-logic). Likewise, if there is an average RSSI reader weaker than `-65 dBm` for the past 30 seconds, we print `ABSENT`.
+
+Each `DETECT` and `ABSENT` statement is only printed once, whenever it transitions from a state.
 
 ### Light Sensing and Data Transfer Logic
 
