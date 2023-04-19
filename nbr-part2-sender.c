@@ -28,9 +28,9 @@
 #define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
 #define SLEEP_CYCLE  9        	      // 0 for never sleep
 #define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
-#define SAMPLING_INTERVAL RTIMER_SECOND * 5 // 30s sampling interval
+#define SAMPLING_INTERVAL RTIMER_SECOND * 3 // 30s sampling interval
 
-#define MAX_NODES 5 // modify to specify max number of nodes that can be in proximity
+#define MAX_NODES 4 // modify to specify max number of nodes that can be in proximity
 #define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
 #define RSSI_WINDOW 5 // the number of rssi_values we want to keep
 #define IN_PROXIMITY_THRESHOLD 10
@@ -63,6 +63,7 @@ typedef struct {
   unsigned long src_id;
   unsigned long in_proximity_since; //when i first receive a packet from this source
   unsigned long out_of_prox_since; //the first timestamp where it is out-of-proximity
+  unsigned long prev_discovery_time;
   short rssi_values[RSSI_WINDOW];
   int rssi_ptr;
   bool state;
@@ -90,9 +91,6 @@ unsigned long curr_timestamp;
 
 // save timestamp when it started sending
 unsigned long start_clock_time;
-
-// save previous time it discovered the neighbour
-unsigned long prev_discovery_timestamp = -1;
 
 
 // array to store sampling data
@@ -251,6 +249,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 
 
       //perform action on registered node
+      curr->prev_discovery_time = curr_timestamp;
       curr->rssi_values[curr->rssi_ptr] = recv_rssi;
       curr->rssi_ptr = (curr->rssi_ptr + 1) % RSSI_WINDOW;
       
@@ -328,6 +327,18 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
       PT_YIELD(&light_pt);
     }
     // printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
+
+    for (i = 0; i < MAX_NODES; i++) {
+      if (node_mem_map[i]) {
+        unsigned long time_diff = (curr_timestamp - node_tracker[i].prev_discovery_time)/CLOCK_SECOND;
+        if (time_diff >= OUT_OF_PROXIMITY_THRESHOLD && node_tracker[i].state != ABSENT) {
+          printf("%3lu.%03lu ABSENT %ld\n", node_tracker[i].prev_discovery_time / CLOCK_SECOND, ((node_tracker[i].prev_discovery_time % CLOCK_SECOND)*1000) / CLOCK_SECOND, node_tracker[i].src_id);
+          node_tracker[i].state = ABSENT;
+          node_mem_map[i] = FALSE;
+        }
+      }
+    }
+
 
     if (prev_sample_time == -1) {
       // printf("Collecting first light reading\n");
