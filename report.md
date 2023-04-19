@@ -13,7 +13,9 @@ Team Number: 9
 
 ## Compiling Information
 
-Please run `sudo make TARGET=cc26x0-cc13x0 BOARD=sensortag/cc2650 PORT=/dev/ttyACM0 unicast_communication` to compile `unicast_communication.c`, with the appropriate `makefile`.
+Please run `sudo make TARGET=cc26x0-cc13x0 BOARD=sensortag/cc2650 PORT=/dev/ttyACM0 program_name` to compile the appropriate `program_name` for each part, with the appropriate `makefile`. 
+
+This `makefile` is provided, and compilation for Task 1 should use `nbr`, whereas compilation for Task 2 should use `nbr-part2-requester` and `nbr-part2-sender` for the receiver (data mule) nodes and light-sensing node respectively.
 
 ---
 
@@ -32,15 +34,13 @@ There are two main objectives for this project, namely:
 
 The first task introduces the "birthday" protocol which is a probabilistic neighbour discovery mechanism. We were tasked to experiment with this and report our findings, then implement an algorithm that allows neighbour discovery within a deterministic time.
 
-The second task requires us to perform light sensing and neighbour discovery. One node is fixed as the light sensor, while other nodes will discover it by sending data. After a certain time, the light sensing node must send data to the requesting node. We are to estalbish a delay-tolerant network that can send and receive data where necessary.
+The second task requires us to perform light sensing and neighbour discovery. One node is fixed as the light sensor, while other nodes will discover it by sending data. After a certain time, the light sensing node must send data to the requesting node. We are to establish a delay-tolerant network that can send and receive data where necessary.
 
 ---
 
 ## Findings: Task 1
 
 ### Question 1
-
-> Using the default settings, observe and record how long the devices take to discover each other. Pick one of the devices as A and plot the cumulative distribution of the intervals between packet receptions on device A hearing from device B.
 
 The cumulative distribution of the intervals between packet reception on A hearing from B is as follows:
 <p align="center">
@@ -57,7 +57,7 @@ From our experiment, the average time for device A to discover B is approximatel
 
 ### Question 2
 
-> Reset device B and observe how long it takes for device A to hear from device B after device B reboots. You may need to modify the given code to observe this duration. Perform the experiments at least 10 times and plot the cumulative distribution.
+The cumulative distribution of the intervals between packets received after resetting device B is as shown:
 
 <p align="center">
     <img src="./images/q2-graph.png" /> </br>
@@ -76,8 +76,6 @@ The average time for device A to discover B after resetting, according to our da
 
 ### Question 3
 
-> Try out different settings and discuss your observations
-
 The following modifications were made:
 1. Change wake time (WAKE_TIME)
 1. Change sleep slot (SLEEP_SLOT)
@@ -85,7 +83,7 @@ The following modifications were made:
 
 For this part of the experiment, we took the time intervals across 50 receives. As such, like before, there are 49 intervals.
 
-The different settings we used were as follows:
+The different settings we used, and the results obtained are as follows:
 
 | Experiment Number | Setting | Average Time to Discovery (A discovers B) | Average Time to Discovery (B discovers A) | Total Number of packets sent by B | Total Number of packets sent by A |
 | ------------------| ------- | ------------------------- | ------------------------| --- | -- |
@@ -93,10 +91,10 @@ The different settings we used were as follows:
 | 2 | Wake time from 0.1s to 0.2s (RTIMER/5) | 2.757s | 2.671s | 267 | 238 |
 | 3 | Sleep cycle from 9 to 5 | 1.945s | 2.031s | 322 | 403 |
 | 4 | Sleep slot from RTIMER_SECOND/10 to RTIMER_SECOND/12 | 3.976s | 4.015s | 485 | 473 |
+> Table 1: Summary of the experiments and their results
 
 The results for each modification is explained below.
 
-> Table 1: Summary of the experiments and their results
 
 The graphs of packets received in an certain interval [X, Y] is shown below for each setting:
 
@@ -220,7 +218,7 @@ Based on our tests, the maximum 2-way discovery latency is around 9.8s. The theo
 
 ## Findings: Task 2
 
-The algorithm implemented to ensure node discovery is different from the one we have described in Task 1.
+The algorithm implemented to ensure node discovery is different from the one we have described in Task 1. The algorithm is described in greater detail [below](#neighbour-discovery-logic).
 
 For Task 2, since the architecture is many-to-one (where the one is the light-sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the **SENDER** and the SensorTags as the **REQUESTER** (request for data). 
 
@@ -241,26 +239,27 @@ The following image shows the description of our algorithm:
     <em> Figure 4: Details about the algorithm </em>
 </p>
 
-
-Figure 4 shows an example of how neighbour discovery is achieved. Assuming **SENDER** wakes up approximately 1 slot late, **REQUESTER** begins discovery early. This means that their wake slots are out of sync by 1 slot.
+Figure 4 shows an example of how neighbour discovery is achieved with our algorithm. Assuming **SENDER** wakes up approximately 1 slot late, **REQUESTER** begins discovery early. This means that their wake slots are out of sync by 1 slot.
 
 Since **REQUESTER** has a staggering wake slot, in cycle 2, **REQUESTER** and **SENDER** wake slot synchronises and wakes up at the same slot (slot 12) and discover each other.
 
-We implemented a synchronisation mechanism that is shown in the 3rd cycle of Figure 4. When both **REQUESTER** and **SENDER** aligns their wake slot (in cycle 2) with each other, **REQUESTER** stops staggering their wake slot, and instead reverts to the simplest logic (that follows the **SENDER**'s logic) waking up at the first slot, then sleeping for the remaining 9. This ensures synchronisation of both **REQUESTER** and **SENDER** wake times.
+We implemented a synchronisation mechanism that is shown in the 3rd cycle of Figure 4. When both **REQUESTER** and **SENDER** aligns their wake slot (in cycle 2) with each other, **REQUESTER** stops increasing the staggering of the wake slot and instead continues its current behaviour. In the case of Figure 4, it will sleep for 1 slot, wake for 1 slot, and sleep for the remaining slot.
+
+This ensures synchronisation of the nodes. This behaviour can be extended to multiple `REQUESTER` nodes, and synchronisation should not fail upon discovery.
 
 The logic/inspiration for this algorithm follows the Lowest Common Multiple logic. The wake slot for **REQUESTER** is staggered until it matches up with **SENDER**. The finer details of the **SENDER** and **REQUESTER** are described in the subsections below.
 
 #### **SENDER**
 
-Each cycle is segmented into 10 slots. The sender will alway wake up the radio for the first slot, before going to sleep for the remaining 9 slots.
+Each cycle is segmented into 10 slots. The sender will always wake up the radio for the first slot, before going to sleep for the remaining 9 slots.
 
 #### **REQUESTER**
 
-Likewise, each cycle is segmented into 10 slots. For this algorithm, we introduce a variable `i` to stagger when the radio should wake up. When the requester first starts up, it turns on the radio at the very first slot, then sleeps for the remaining 9 slots. `i` is increment by 1, staggering the radio wake slot to be the second slot.
+Likewise, each cycle is segmented into 10 slots. For this algorithm, we introduce a variable `i` to stagger when the radio should wake up. When the requester first starts up, it turns on the radio at the very first slot, then sleeps for the remaining 9 slots. `i` is incremented by 1, staggering the radio wake slot to be the second slot.
 
-Consequently, `i` is incremented, and the radio wake slot is pushed again, until eventually it resets back to the very first slot. This algorithm is described in Figure 4.
+Subsequently, `i` is incremented, and the radio wake slot is pushed again, until eventually it resets back to the very first slot. This algorithm is described in Figure 4.
 
-The above algorithm ensures that the SENDER and REQUESTER will eventually find each other within a deterministic 10s (or 10 cycles), while reducing the duty cycle to 10% (from a previous 19%).
+The above algorithm ensures that the SENDER and REQUESTER will eventually find each other within a deterministic 10s (or 10 cycles), while reducing the duty cycle to 10% (from a previous 19%), which can be considered to be a major (reduced duty cycle by almost half!) improvement.
 
 ### Logic for proximity detection
 
