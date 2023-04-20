@@ -147,12 +147,12 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
   if (len == sizeof(data_packet)) {
     data_packet_struct received_packet_data;
     memcpy(&received_packet_data, data, len);
-    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi, received_packet_data.src_id);
+    // printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi, received_packet_data.src_id);
 
     if (!sync_flag && received_packet_data.seq % 2 != 0) {
-      printf("Attempting to sync\n");
+      // printf("Attempting to sync\n");
       sync_flag = TRUE;
-      printf("Set sync flag\n");
+      // printf("Set sync flag\n");
     }
 
     if (received_packet_data.src_id != sender_info.src_id) { //new sender detected
@@ -202,9 +202,12 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
     memcpy(&received_data, data, len);
     printf("Light:  ");
     for (int i = 0; i < 10; i++) {
-      printf("Reading %d: %d.%02d lux, ", i + 1, received_data.data[i] / 100, received_data.data[i] % 100);
+      if (i == 9) {
+        printf("%d.%02d\n", received_data.data[i] / 100, received_data.data[i] % 100);
+      } else {
+        printf("%d.%02d, ", received_data.data[i] / 100, received_data.data[i] % 100);
+      }
     }
-    printf("\n");
   }
 }
 
