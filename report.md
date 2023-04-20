@@ -243,6 +243,8 @@ Furthermore, due to the amount of information that needs to be kept track of by 
 7. A variable to track the state, `state`
    This keeps track of whether this particular node is in either `ABSENT` or `DETECT` state
 
+---
+
 ### Neighbour Discovery Logic
 
 Given the asymmetrical roles of the devices, the neighbour discovery algorithm used here is also different from Part 1. Both **SENDER** and **REQUESTER** devices implement different algorithms to achieve neighbour discovery within 10 seconds and has a duty cycle of 10%.
@@ -319,6 +321,7 @@ When **REQUESTER** successfully receives a discovery packet from **SENDER**, it 
 
 However, more specifically, **REQUESTER** will perform synchronisation when it receives an discovery packet that is sent at the end of the wake slot. This is to ensure successful receive of the transferred data. More details on this aspect will be discussed in the section on [synchronization details](#synchronization-details).
 
+---
 ### Logic for proximity detection
 
 Proximity detection and distance ranging is based on RSSI values. If a device is out of proximity, the received RSSI will be lower.
@@ -333,9 +336,13 @@ Furthermore, if one node does not receive packets from a detected node for more 
 
 Each `DETECT` and `ABSENT` statement is only printed once, whenever it transitions from a state.
 
+---
+
 ### Light Sensing
 
 The light sensor is activated every 3s to take readings. Every 30s, a total of 10 light readings will be stored. The readings are kept track of using an array of size 10, and using a counter `light_data_counter` to keep track of which index to be stored at. Whenever it reaches the maximum size of 10, `light_data_counter % 10` is used to calculate which index is to be replaced.
+
+---
 
 ### Data Transfer Logic
 
@@ -344,12 +351,14 @@ Each discovery packet contains a header which includes the sequence number. This
 For transferring the light readings, once the **REQUESTER** transitions to the `DETECT` state after being within 3m for >= 15 seconds with the **SENDER**, it will use the `REQ` header in its packets to the **SENDER**. The **SENDER** receives this packet with the `REQ` header and sends the light readings back if it is also in `DETECT` state for that node. The light readings that are sent back does not increment the sequence number.
 
 The strategy used for transferring light readings is as follows:
-1. Set a `req_flag` when **REQUESTER** enters the `DETECT` state..
+1. Set a `req_flag` when **REQUESTER** enters the `DETECT` state.
 2. While the `req_flag` is set, all packets sent by the **REQUESTER** will contain the `REQ` header.
 3. When **REQUESTER** receives data, it checks if it is the light data. If it is, it unsets the `req_flag` and will not request for any more data from the **SENDER** while it is in proximity.
 4. When **REQUESTER** leaves proximity and re-enters proximity, steps 1 to 3 is repeated
 
 We continuously use the `REQ` header when sending packets to the **SENDER**, and only stop using the `REQ` header when we have received the data that is requested. This ensures reliable reception of the light data by the **REQUESTER** node.
+
+Also, in the `DETECT` state, we will set the `req_flag` every 30 seconds, causing the requester to receive fresh light information every 30seconds.
 
 ---
 
