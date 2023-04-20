@@ -57,16 +57,14 @@ typedef struct {
 } data_packet_struct;
 
 /*---------------------------------------------------------------------------*/
-// custom struct to store information per for each node that are in sync...
+// custom struct to store information per for node that is in sync...
 typedef struct {
   unsigned long src_id;
   unsigned long in_proximity_since; //when i first receive a packet from this source
   unsigned long out_of_prox_since; //the first timestamp where it is out-of-proximity
-  unsigned long prev_discovery_time;
   short rssi_values[RSSI_WINDOW];
   int rssi_ptr;
-  bool state;
-} packet_store_struct;
+} sender_node_struct;
 
 typedef struct {
   int data[10];
@@ -120,7 +118,7 @@ unsigned long start_clock_time;
 unsigned long prev_discovery_timestamp = -1;
 
 //struct holding information about node we have connected with
-static packet_store_struct sender_info;
+static sender_node_struct sender_info;
 
 static bool state = ABSENT;
 
