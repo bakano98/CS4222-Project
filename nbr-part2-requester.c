@@ -42,7 +42,7 @@ linkaddr_t dest_addr;
 /* CH: link address = 0012.4b00.1665.f587 = {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}} */
 
 //================ UPDATE THIS TO THE CORRECT ADDR =================
-static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}}; // modify this to change the light-sensing node
+static linkaddr_t light_addr = { {0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87} }; // modify this to change the light-sensing node
 //=================================================================
 
 static int sync_flag = FALSE;
@@ -75,22 +75,22 @@ static float get_average_rssi();
 static void clear_rssi_values();
 static void on_absent_state();
 /*---------------------------------------------------------------------------*/
-static float get_average_rssi(short *rssi_values) {
+static float get_average_rssi(short* rssi_values) {
   int num_valid_rssi = 0;
   int total_rssi = 0;
-  
-  for (int i = 0; i < RSSI_WINDOW; i++ ) {
+
+  for (int i = 0; i < RSSI_WINDOW; i++) {
     if (rssi_values[i] != 0) {
       num_valid_rssi += 1;
       total_rssi += rssi_values[i];
     }
   }
 
-  return ((float) total_rssi)/num_valid_rssi;
+  return ((float)total_rssi) / num_valid_rssi;
 }
 
-static void clear_rssi_values(short *rssi_values) {
-  for (int i = 0; i < RSSI_WINDOW; i++ ) {
+static void clear_rssi_values(short* rssi_values) {
+  for (int i = 0; i < RSSI_WINDOW; i++) {
     rssi_values[i] = 0;
   }
 }
@@ -137,8 +137,8 @@ AUTOSTART_PROCESSES(&nbr_discovery_process);
 
 
 // Function called after reception of a packet
-void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest) 
-{ 
+void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* src, const linkaddr_t* dest)
+{
   signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
   curr_timestamp = clock_time();
   prev_discovery_timestamp = curr_timestamp;
@@ -147,7 +147,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
   if (len == sizeof(data_packet)) {
     data_packet_struct received_packet_data;
     memcpy(&received_packet_data, data, len);
-    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
+    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi, received_packet_data.src_id);
 
     if (!sync_flag && received_packet_data.seq % 2 != 0) {
       printf("Attempting to sync\n");
@@ -170,35 +170,37 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
       if (sender_info.in_proximity_since == -1) {
         sender_info.in_proximity_since = curr_timestamp;
         sender_info.out_of_prox_since = -1;
-      } 
+      }
 
       unsigned long time_diff = curr_timestamp - sender_info.in_proximity_since;
-      if (state != DETECT && time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
-        printf("%3lu.%03lu DETECT %ld\n", sender_info.in_proximity_since / CLOCK_SECOND, ((sender_info.in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, sender_info.src_id);
+      if (state != DETECT && time_diff / CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+        printf("%3lu.%03lu DETECT %ld\n", sender_info.in_proximity_since / CLOCK_SECOND, ((sender_info.in_proximity_since % CLOCK_SECOND) * 1000) / CLOCK_SECOND, sender_info.src_id);
         req_flag = TRUE;
-        state = DETECT;        
-      } 
-    } else {
+        state = DETECT;
+      }
+    }
+    else {
       if (sender_info.out_of_prox_since == -1) {
         sender_info.out_of_prox_since = curr_timestamp;
         sender_info.in_proximity_since = -1;
-      } 
+      }
       unsigned long time_diff = curr_timestamp - sender_info.out_of_prox_since;
-      if (state != ABSENT && time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
-        printf("%3lu.%03lu ABSENT %ld\n", sender_info.out_of_prox_since / CLOCK_SECOND, ((sender_info.out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, sender_info.src_id);
+      if (state != ABSENT && time_diff / CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
+        printf("%3lu.%03lu ABSENT %ld\n", sender_info.out_of_prox_since / CLOCK_SECOND, ((sender_info.out_of_prox_since % CLOCK_SECOND) * 1000) / CLOCK_SECOND, sender_info.src_id);
         on_absent_state();
-      }       
+      }
     }
 
-  } else {
+  }
+  else {
     light_data_arr received_data;
     req_flag = FALSE; // received data, no more asking
     // Copy the content of packet into the data structure
-    
+
     memcpy(&received_data, data, len);
     printf("Light:  ");
     for (int i = 0; i < 10; i++) {
-      printf("Reading %d: %d.%02d lux, ", i+1, received_data.data[i]/100, received_data.data[i]%100);
+      printf("Reading %d: %d.%02d lux, ", i + 1, received_data.data[i] / 100, received_data.data[i] % 100);
     }
     printf("\n");
   }
@@ -206,8 +208,8 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 
 
 // Scheduler function for the sending of neighbour discovery packets
-char sender_scheduler(struct rtimer *t, void *ptr) {
- 
+char sender_scheduler(struct rtimer* t, void* ptr) {
+
   static uint16_t i = 0;
   static int sleep_counter = 0;
   static int sc;
@@ -221,14 +223,14 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
   PT_BEGIN(&pt);
 
 
-  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", scheduler_curr_timestamp, scheduler_curr_timestamp / CLOCK_SECOND, 
-  ((scheduler_curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
+  printf("Start clock %lu ticks, timestamp %3lu.%03lu\n", scheduler_curr_timestamp, scheduler_curr_timestamp / CLOCK_SECOND,
+    ((scheduler_curr_timestamp % CLOCK_SECOND) * 1000) / CLOCK_SECOND);
 
-  start_clock_time =  scheduler_curr_timestamp;
-  
+  start_clock_time = scheduler_curr_timestamp;
+
   // total sleep for 0.9s, wake for 0.1s in a 1s period
   NETSTACK_RADIO.off();
-  while(1){
+  while (1) {
     sc = sleep_counter % TOTAL_SLOTS; // -> 0 ~ 9 slots only.
     for (j = 0; j < sc; j++) {
       // printf(" Sleep for %d slots first before doing SEND routine\n", sc);
@@ -240,14 +242,15 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
     NETSTACK_RADIO.on();
 
     // send NUM_SEND number of neighbour discovery beacon packets
-    for(i = 0; i < NUM_SEND; i++){
+    for (i = 0; i < NUM_SEND; i++) {
 
       // Initialize the nullnet module with information of packet to be trasnmitted
-      nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+      nullnet_buf = (uint8_t*)&data_packet; //data transmitted
       nullnet_len = sizeof(data_packet); //length of data transmitted
       if (req_flag) {
         data_packet.seq = REQ;
-      } else {
+      }
+      else {
         data_packet.seq = seq;
         seq++;
       }
@@ -256,40 +259,40 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 
       // printf("Send seq# %lu  @ %8lu ticks   %3lu.%03lu\n", data_packet.seq, curr_timestamp, curr_timestamp / CLOCK_SECOND, ((curr_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND);
       NETSTACK_NETWORK.output(&light_addr); //Packet transmission
-      
+
       // wait for SLOT_TIME before sending the next packet
-      if(i != (NUM_SEND - 1)){
+      if (i != (NUM_SEND - 1)) {
         rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
         PT_YIELD(&pt);
       }
-  
+
     }
 
     NETSTACK_RADIO.off();
     // info = 9 - sc;
     for (j = SLEEP_CYCLE - sc; j > 0; j--) {
       // printf(" Sleep for %d slots first before going into NEXT routine\n", info);
-      rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t) sender_scheduler, ptr);
+      rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)sender_scheduler, ptr);
       PT_YIELD(&pt);
     }
- 
+
     if (!sync_flag) {
-      sleep_counter++; 
+      sleep_counter++;
     }
 
     unsigned long time_diff = scheduler_curr_timestamp - prev_discovery_timestamp;
 
-    if (time_diff/CLOCK_SECOND > 5) { //maybe somehow got out of sync
+    if (time_diff / CLOCK_SECOND > 5) { //maybe somehow got out of sync
       sync_flag = FALSE;
     }
 
     //no packets received for good 30 seconds -> other device might have died
-    if (time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) { 
+    if (time_diff / CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
       if (state != ABSENT) {
-        printf("%3lu.%03lu ABSENT %ld\n", prev_discovery_timestamp / CLOCK_SECOND, ((prev_discovery_timestamp % CLOCK_SECOND)*1000) / CLOCK_SECOND, sender_info.src_id);        
+        printf("%3lu.%03lu ABSENT %ld\n", prev_discovery_timestamp / CLOCK_SECOND, ((prev_discovery_timestamp % CLOCK_SECOND) * 1000) / CLOCK_SECOND, sender_info.src_id);
       }
       on_absent_state();
-    } 
+    }
   }
   PT_END(&pt);
 }
@@ -299,14 +302,14 @@ char sender_scheduler(struct rtimer *t, void *ptr) {
 PROCESS_THREAD(nbr_discovery_process, ev, data)
 {
 
- // static struct etimer periodic_timer;
+  // static struct etimer periodic_timer;
 
   PROCESS_BEGIN();
 
   // initialize data packet sent for neighbour discovery exchange
   data_packet.src_id = node_id; //Initialize the node ID
   data_packet.seq = seq; //Initialize the sequence number of the packet
-  
+
   nullnet_set_input_callback(receive_packet_callback); //initialize receiver callback
   linkaddr_copy(&dest_addr, &linkaddr_null);
 
