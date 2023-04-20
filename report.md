@@ -337,6 +337,6 @@ Our design also makes it such that **REQUESTER** will not request for any more d
 
 ## Enhancements Made (Bonus Marks)
 
-With the implementation of two different algorithms, we consider this to be an enhancement to the project which consequently also reduces the duty cycle. Further, this algorithm is not mentioned or introduced anywhere within the scope of the lecture.
+With the implementation of two different algorithms, we consider this to be an enhancement to the project which consequently also reduces the duty cycle. Further, this algorithm will synchronise the SensorTags, and has not been mentioned or introduced anywhere within the scope of the course.
 
 Thus, we believe this should qualify for the bonus marks, or "creativity of solution".
