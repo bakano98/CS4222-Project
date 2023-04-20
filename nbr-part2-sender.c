@@ -24,13 +24,11 @@
 #define ABSENT 0
 
 // Configures the wake-up timer for neighbour discovery 
-#define WAKE_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
+#define SLOT_TIME RTIMER_SECOND/10    // 10 HZ, 0.1s
 #define SLEEP_CYCLE  9        	      // 0 for never sleep
-#define SLEEP_SLOT RTIMER_SECOND/10   // sleep slot should not be too large to prevent overflow
 #define SAMPLING_INTERVAL RTIMER_SECOND * 3 // 30s sampling interval
 
 #define MAX_NODES 4 // modify to specify max number of nodes that can be in proximity
-#define NUM_DATA 10 // modify this to increase the number of experiments -- minimum is 10.
 #define RSSI_WINDOW 5 // the number of rssi_values we want to keep
 #define IN_PROXIMITY_THRESHOLD 15
 #define OUT_OF_PROXIMITY_THRESHOLD 30
@@ -43,7 +41,9 @@ linkaddr_t dest_addr;
 /* WJ: link address = 0012.4b00.12b9.6687 = {{0x00, 0x12, 0x4b, 0x00, 0x12, 0xb9, 0x66, 0x87}} */
 /* CH: link address = 0012.4b00.1665.f587 = {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}} */
 
-static linkaddr_t light_addr =        {{0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87}}; // modify this to change the light-sensing node
+//--------------------UPDATE THIS AND IN nbr-part2-requester.c-------------
+static linkaddr_t light_addr = { {0x00, 0x12, 0x4b, 0x00, 0x16, 0x65, 0xf5, 0x87} }; // modify this to change the light-sensing node
+//-------------------------------------------------------------------------
 
 static int prev_sample_time = -1;
 
@@ -73,7 +73,7 @@ typedef struct {
 } light_data_arr;
 
 /*---------------------------------------------------------------------------*/
-// duty cycle = WAKE_TIME / (WAKE_TIME + SLEEP_SLOT * SLEEP_CYCLE)
+// duty cycle = SLOT_TIME / (SLOT_TIME + SLOT_TIME * SLEEP_CYCLE)
 /*---------------------------------------------------------------------------*/
 
 // sender timer implemented using rtimer
@@ -93,7 +93,7 @@ unsigned long start_clock_time;
 
 
 // array to store sampling data
-static int light_data[10] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+static int light_data[10] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
 static int light_data_counter = 0;
 
 // neighbours discovered so far. we allow discovery of up to 5 neighbours
@@ -115,7 +115,7 @@ AUTOSTART_PROCESSES(&nbr_discovery_process);
 /*---------------------------------------------------------------------------*/
 static void init_opt_reading(void);
 static void get_light_reading(void);
-char schedule_sleep(struct rtimer *t, void *ptr);
+char schedule_sleep(struct rtimer* t, void* ptr);
 static float get_average_rssi();
 static void clear_rssi_values();
 static void clear_node_mem_map();
@@ -127,22 +127,22 @@ static void clear_node_mem_map() {
   }
 }
 
-static float get_average_rssi(short *rssi_values) {
+static float get_average_rssi(short* rssi_values) {
   int num_valid_rssi = 0;
   int total_rssi = 0;
-  
-  for (int i = 0; i < RSSI_WINDOW; i++ ) {
+
+  for (int i = 0; i < RSSI_WINDOW; i++) {
     if (rssi_values[i] != 0) {
       num_valid_rssi += 1;
       total_rssi += rssi_values[i];
     }
   }
 
-  return ((float) total_rssi)/num_valid_rssi;
+  return ((float)total_rssi) / num_valid_rssi;
 }
 
-static void clear_rssi_values(short *rssi_values) {
-  for (int i = 0; i < RSSI_WINDOW; i++ ) {
+static void clear_rssi_values(short* rssi_values) {
+  for (int i = 0; i < RSSI_WINDOW; i++) {
     rssi_values[i] = 0;
   }
 }
@@ -152,10 +152,11 @@ get_light_reading()
 {
   int value;
   value = opt_3001_sensor.value(0);
-  if(value != CC26XX_SENSOR_READING_ERROR) {
-    light_data[light_data_counter%10] = value;
+  if (value != CC26XX_SENSOR_READING_ERROR) {
+    light_data[light_data_counter % 10] = value;
     printf("OPT: Light=%d.%02d lux\n", value / 100, value % 100);
-  } else {
+  }
+  else {
     printf("OPT: Light Sensor's Warming Up\n\n");
   }
   init_opt_reading();
@@ -170,7 +171,7 @@ init_opt_reading(void)
 
 // Receiver gets data properly -- but needs syncing.
 static void
-send_light_data(const linkaddr_t *dest) {
+send_light_data(const linkaddr_t* dest) {
   // printf("Sending to address: ");
   // LOG_INFO_LLADDR(dest);
   // printf("\n");
@@ -178,7 +179,7 @@ send_light_data(const linkaddr_t *dest) {
   for (int i = 0; i < 10; i++) {
     temp.data[i] = light_data[i];
   }
-  nullnet_buf = (uint8_t *)&temp;
+  nullnet_buf = (uint8_t*)&temp;
   nullnet_len = sizeof(temp);
   NETSTACK_NETWORK.output(dest);
   // printf("Light: ");
@@ -192,10 +193,10 @@ send_light_data(const linkaddr_t *dest) {
 
 
 // Function called after reception of a packet
-void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest) 
-{ 
+void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* src, const linkaddr_t* dest)
+{
   // Check if the received packet size matches with what we expect it to be
-  if(len == sizeof(data_packet)) {
+  if (len == sizeof(data_packet)) {
     static data_packet_struct received_packet_data;
     int i;
     int req_flag = FALSE;
@@ -204,7 +205,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     // Copy the content of packet into the data structure
     memcpy(&received_packet_data, data, len);
     signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
-    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi,received_packet_data.src_id);
+    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi, received_packet_data.src_id);
 
     if (received_packet_data.seq == REQ) {
       printf("Received REQ\n");
@@ -212,7 +213,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
     }
 
 
-    packet_store_struct *curr = NULL;
+    packet_store_struct* curr = NULL;
 
     static int node_slot = -1;
     for (i = 0; i < MAX_NODES; i++) {
@@ -228,15 +229,16 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
       }
 
     }
-    
+
     if (curr == NULL && node_slot == -1) {
       printf("Max capacity reached\n");
-    } else {
+    }
+    else {
 
       if (curr == NULL) { //register new node by initializing node_tracker slot
         curr = &node_tracker[node_slot];
         node_mem_map[node_slot] = TRUE;
-        
+
         curr->in_proximity_since = -1;
         curr->out_of_prox_since = -1;
         curr->state = ABSENT;
@@ -251,39 +253,40 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
       curr->prev_discovery_time = curr_timestamp;
       curr->rssi_values[curr->rssi_ptr] = recv_rssi;
       curr->rssi_ptr = (curr->rssi_ptr + 1) % RSSI_WINDOW;
-      
+
       if (get_average_rssi(curr->rssi_values) > -65) {
         if (curr->in_proximity_since == -1) {
           curr->in_proximity_since = curr_timestamp;
           curr->out_of_prox_since = -1;
-        } 
+        }
 
         unsigned long time_diff = curr_timestamp - curr->in_proximity_since;
-        if (curr->state != DETECT && time_diff/CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
-          printf("%3lu.%03lu DETECT %ld\n", curr->in_proximity_since / CLOCK_SECOND, ((curr->in_proximity_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
+        if (curr->state != DETECT && time_diff / CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+          printf("%3lu.%03lu DETECT %ld\n", curr->in_proximity_since / CLOCK_SECOND, ((curr->in_proximity_since % CLOCK_SECOND) * 1000) / CLOCK_SECOND, curr->src_id);
           // keep sending while data is being requested from master
           curr->state = DETECT;
-        } 
+        }
 
-      } else {
+      }
+      else {
         if (curr->out_of_prox_since == -1) {
           curr->out_of_prox_since = curr_timestamp;
           curr->in_proximity_since = -1;
-        } 
+        }
 
         unsigned long time_diff = curr_timestamp - curr->out_of_prox_since;
-        if (curr->state != ABSENT && time_diff/CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
-          printf("%3lu.%03lu ABSENT %ld\n", curr->out_of_prox_since / CLOCK_SECOND, ((curr->out_of_prox_since % CLOCK_SECOND)*1000) / CLOCK_SECOND, curr->src_id);
+        if (curr->state != ABSENT && time_diff / CLOCK_SECOND >= OUT_OF_PROXIMITY_THRESHOLD) {
+          printf("%3lu.%03lu ABSENT %ld\n", curr->out_of_prox_since / CLOCK_SECOND, ((curr->out_of_prox_since % CLOCK_SECOND) * 1000) / CLOCK_SECOND, curr->src_id);
           curr->state = ABSENT;
           node_mem_map[node_slot] = FALSE;
-        } 
+        }
 
       }
 
       if (curr->state == DETECT && req_flag) {
         send_light_data(src);
       }
-      
+
     }
 
   }
@@ -291,7 +294,7 @@ void receive_packet_callback(const void *data, uint16_t len, const linkaddr_t *s
 }
 
 // // this is the sleeping function for 
-char schedule_sleep(struct rtimer *t, void *ptr) {
+char schedule_sleep(struct rtimer* t, void* ptr) {
   // printf("Schedule sleep for receiver\n");
   PT_BEGIN(&light_pt);
   static int i = 0;
@@ -301,38 +304,38 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
     NETSTACK_RADIO.on();
 
     // stay awake for 0.1s
-    for(i = 0; i < NUM_SEND; i++){
-      nullnet_buf = (uint8_t *)&data_packet; //data transmitted
+    for (i = 0; i < NUM_SEND; i++) {
+      nullnet_buf = (uint8_t*)&data_packet; //data transmitted
       nullnet_len = sizeof(data_packet); //length of data transmitted
       data_packet.seq++;
       curr_timestamp = clock_time();
       data_packet.timestamp = curr_timestamp;
 
       NETSTACK_NETWORK.output(&dest_addr); //Packet transmission
-      
-      // wait for WAKE_TIME before going into sleep routine
-      if(i != (NUM_SEND - 1)){
-        rtimer_set(t, RTIMER_TIME(t) + WAKE_TIME, 1, (rtimer_callback_t)schedule_sleep, ptr);
+
+      // wait for SLOT_TIME before going into sleep routine
+      if (i != (NUM_SEND - 1)) {
+        rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)schedule_sleep, ptr);
         PT_YIELD(&light_pt);
       }
-   
+
     }
 
     // sleep for 9 slots
     NETSTACK_RADIO.off();
-    for (j = 9; j > 0; j--) {
+    for (j = SLEEP_CYCLE; j > 0; j--) {
       // printf(" Sleep for 9 slots first before going into NEXT routine\n");
-      rtimer_set(t, RTIMER_TIME(t) + SLEEP_SLOT, 1, (rtimer_callback_t)schedule_sleep, ptr);
+      rtimer_set(t, RTIMER_TIME(t) + SLOT_TIME, 1, (rtimer_callback_t)schedule_sleep, ptr);
       PT_YIELD(&light_pt);
     }
     // printf("Current time: %3lu.%03lu\n", clock_time() / CLOCK_SECOND, ((clock_time() % CLOCK_SECOND)*1000));
 
     for (i = 0; i < MAX_NODES; i++) {
       if (node_mem_map[i]) {
-        unsigned long time_diff = (curr_timestamp - node_tracker[i].prev_discovery_time)/CLOCK_SECOND;
+        unsigned long time_diff = (curr_timestamp - node_tracker[i].prev_discovery_time) / CLOCK_SECOND;
         if (time_diff >= OUT_OF_PROXIMITY_THRESHOLD) {
           if (node_tracker[i].state != ABSENT) {
-            printf("%3lu.%03lu ABSENT %ld\n", node_tracker[i].prev_discovery_time / CLOCK_SECOND, ((node_tracker[i].prev_discovery_time % CLOCK_SECOND)*1000) / CLOCK_SECOND, node_tracker[i].src_id);
+            printf("%3lu.%03lu ABSENT %ld\n", node_tracker[i].prev_discovery_time / CLOCK_SECOND, ((node_tracker[i].prev_discovery_time % CLOCK_SECOND) * 1000) / CLOCK_SECOND, node_tracker[i].src_id);
             node_tracker[i].state = ABSENT;
           }
           node_mem_map[i] = FALSE;
@@ -347,7 +350,7 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
       prev_sample_time = RTIMER_NOW();
     }
 
-    if (RTIMER_NOW() - prev_sample_time  >= SAMPLING_INTERVAL) {
+    if (RTIMER_NOW() - prev_sample_time >= SAMPLING_INTERVAL) {
       // printf("Interval reached, collecting reading\n");
       get_light_reading();
       prev_sample_time = RTIMER_NOW();
@@ -363,22 +366,23 @@ char schedule_sleep(struct rtimer *t, void *ptr) {
 PROCESS_THREAD(nbr_discovery_process, ev, data)
 {
 
- // static struct etimer periodic_timer;
+  // static struct etimer periodic_timer;
 
   PROCESS_BEGIN();
   clear_node_mem_map();
   data_packet.src_id = node_id; //Initialize the node ID
   data_packet.seq = 0; //Initialize the sequence number of the packet
-  
+
   nullnet_set_input_callback(receive_packet_callback); //initialize receiver callback
-  linkaddr_copy(&dest_addr, &linkaddr_null); 
+  linkaddr_copy(&dest_addr, &linkaddr_null);
 
   // if it is the light sensor node, keep collecting data very SAMPLING_INTERVAL
   if (linkaddr_cmp(&light_addr, &linkaddr_node_addr)) {
     printf("============ This is the light sensing node ============\n\n");
     init_opt_reading();
-    rtimer_set(&rt, RTIMER_NOW() + RTIMER_SECOND, 1,  (rtimer_callback_t)schedule_sleep, NULL);
-  } else {
+    rtimer_set(&rt, RTIMER_NOW() + RTIMER_SECOND, 1, (rtimer_callback_t)schedule_sleep, NULL);
+  }
+  else {
     printf("============ ERROR ============\n\n");
     printf("You have flashed this device as the light sensing node\n\n");
     printf("but you have not changed the light_addr in line46 to  \n\n");

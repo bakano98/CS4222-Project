@@ -13,7 +13,7 @@ Team Number: 9
 
 ## Compiling Information
 
-Please run `sudo make TARGET=cc26x0-cc13x0 BOARD=sensortag/cc2650 PORT=/dev/ttyACM0 program_name` to compile the appropriate `program_name` for each part, with the appropriate `makefile`. 
+Please run `sudo make TARGET=cc26x0-cc13x0 BOARD=sensortag/cc2650 PORT=/dev/ttyACM0 program_name` to compile the appropriate `program_name` for each part, with the appropriate `makefile`.
 
 This `makefile` is provided, and compilation for Task 1 should use `nbr`, whereas compilation for Task 2 should use `nbr-part2-requester` and `nbr-part2-sender` for the receiver (data mule) nodes and light-sensing node respectively.
 
@@ -43,6 +43,7 @@ The second task requires us to perform light sensing and neighbour discovery. On
 ### Question 1
 
 The cumulative distribution of the intervals between packet reception on A hearing from B is as follows:
+
 <p align="center">
     <img src="./images/q1-graph.png" /> </br>
     <em> Figure 1: Cumulative distribution of intervals on default settings</em>
@@ -52,7 +53,7 @@ Each time A receives a packet from B, we print out the time difference between t
 
 We plotted the cumulative distribution curve by splitting the dataset into intervals increasing by 1s (i.e. 0 - 1s, 0 - 2s... etc), then finding how many packets are received during those intervals.
 
-From our experiment, the average time for device A to discover B is approximately 4.20s, however, the longest time it took for A to discover B was 16 seconds. 
+From our experiment, the average time for device A to discover B is approximately 4.20s, however, the longest time it took for A to discover B was 16 seconds.
 </br>
 
 ### Question 2
@@ -66,7 +67,7 @@ The cumulative distribution of the intervals between packets received after rese
 
 The distribution curve was plotted in the same way as in Question 1.
 
-Modifications were made to the structure of the data packet. We added a new field, `startup_time` to denote the time in which device B booted up and sent the first packet. 
+Modifications were made to the structure of the data packet. We added a new field, `startup_time` to denote the time in which device B booted up and sent the first packet.
 
 We performed the experiment 20 times manually. After each reboot of B, A prints to the serial monitor the time it took to receive the packet from B. The time taken for device A to discover B after B's bootup is the time difference between `startup_time` and the time the received packet was sent.
 
@@ -77,6 +78,7 @@ The average time for device A to discover B after resetting, according to our da
 ### Question 3
 
 The following modifications were made:
+
 1. Change wake time (WAKE_TIME)
 1. Change sleep slot (SLEEP_SLOT)
 1. Change sleep cycle (SLEEP_CYCLE)
@@ -85,16 +87,16 @@ For this part of the experiment, we took the time intervals across 50 receives. 
 
 The different settings we used, and the results obtained are as follows:
 
-| Experiment Number | Setting | Average Time to Discovery (A discovers B) | Average Time to Discovery (B discovers A) | Total Number of packets sent by B | Total Number of packets sent by A |
-| ------------------| ------- | ------------------------- | ------------------------| --- | -- |
-| 1 | Wake time from 0.1s to 0.05s (RTIMER_SECOND/20) | 12.300s | 11.860s | 1265 | 1249 |
-| 2 | Wake time from 0.1s to 0.2s (RTIMER/5) | 2.757s | 2.671s | 267 | 238 |
-| 3 | Sleep cycle from 9 to 5 | 1.945s | 2.031s | 322 | 403 |
-| 4 | Sleep slot from RTIMER_SECOND/10 to RTIMER_SECOND/12 | 3.976s | 4.015s | 485 | 473 |
+| Experiment Number | Setting                                              | Average Time to Discovery (A discovers B) | Average Time to Discovery (B discovers A) | Total Number of packets sent by B | Total Number of packets sent by A |
+| ----------------- | ---------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | --------------------------------- | --------------------------------- |
+| 1                 | Wake time from 0.1s to 0.05s (RTIMER_SECOND/20)      | 12.300s                                   | 11.860s                                   | 1265                              | 1249                              |
+| 2                 | Wake time from 0.1s to 0.2s (RTIMER/5)               | 2.757s                                    | 2.671s                                    | 267                               | 238                               |
+| 3                 | Sleep cycle from 9 to 5                              | 1.945s                                    | 2.031s                                    | 322                               | 403                               |
+| 4                 | Sleep slot from RTIMER_SECOND/10 to RTIMER_SECOND/12 | 3.976s                                    | 4.015s                                    | 485                               | 473                               |
+
 > Table 1: Summary of the experiments and their results
 
 The results for each modification is explained below.
-
 
 The graphs of packets received in an certain interval [X, Y] is shown below for each setting:
 
@@ -120,7 +122,7 @@ This experiment involved reducing the wake time from 0.1s to 0.05s. When the wak
 
 While reducing wake time reduces the duty cycle, this also lowers the chance of discover since there is less chance for two wake windows to coincide.
 
-***
+---
 
 <p align="center">
     <img src="./images/exp2.png" /> </br>
@@ -141,11 +143,11 @@ The table below shows the probability of receiving a packet within X seconds:
 
 > Table 3: Summary of experiment 2 and the results
 
-The second experiment involved increasing the wake time from 0.1s to 0.2s. When the wake time was increased to 0.2s, as expected, the average time taken for A to discover B is shorter. 
+The second experiment involved increasing the wake time from 0.1s to 0.2s. When the wake time was increased to 0.2s, as expected, the average time taken for A to discover B is shorter.
 
 By increasing the wake time, we increase the duty cycle and the chance that two wake periods coincide with each other, reducing the time it takes for one device to discover the other.
 
-***
+---
 
 <p align="center">
     <img src="./images/exp3.png" /> </br>
@@ -196,12 +198,14 @@ The fourth (and last) experiment conducted involved reducing the sleep slot. The
 ### Modification of `nbr.c` for two-way discovery within 10s
 
 The algorithm implemented to ensure they both hear from each other is the one shown in Lecture 8, Slide 51 `Asynchronous - Deterministic Bound`:
+
 <p align="center">
     <img src="./images/det-algorithm.png" /> </br>
     <em> Figure 3.4: Distribution of packets received against intervals for setting 4</em>
 </p>
 
 We removed all the parameters, `Twake`, `Tsleep`, etc.. and instead introduced the following parameters:
+
 1. `DISCOVER_WITHIN`
 2. `N`
 3. `SLOT_TIME`
@@ -220,15 +224,24 @@ Based on our tests, the maximum 2-way discovery latency is around 9.8s. The theo
 
 The algorithm implemented to ensure node discovery is different from the one we have described in Task 1. The algorithm is described in greater detail [below](#neighbour-discovery-logic).
 
-For Task 2, since the architecture is many-to-one (where the one is the light-sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the **SENDER** and the SensorTags as the **REQUESTER** (requesting for data). 
+For Task 2, since the architecture is many-to-one (where the one is the light-sensing node), the other SensorTags that are not the light-sensing node do not need to discover each other. For this purpose, we refer to the light-sensing node as the **SENDER** and the data mule SensorTags as the **REQUESTER** (requesting for data).
 
 Furthermore, due to the amount of information that needs to be kept track of by the **SENDER**, we created a custom struct, `packet_store_struct` to include the following:
-1. Source node ID, `src_id`
-2. Time when it first received a packet within 3m, `in_proximity_since`
+
+1. Source node ID, `src_id`.
+   This keeps track of which node the packet was received from
+2. Time when it first received a packet within 3m, `in_proximity_since`.
+   This tells us the time when it first received a packet within 3m, and allows us to decide whether to print `DETECT` or not
 3. Time when it first received a packet further than 3m, `out_of_prox_since`
-4. An array to store the past 5 RSSI values, `rssi_values`
-5. A pointer to keep track of the index, `rssi_ptr`
-6. A `bool` to keep track of whether the node is ABSENT or DETECT, `state`
+   This tells us the time when it first received a packet further than 3m, and allows us to decide whether to print `ABSENT` or not
+4. Time when this node was last discovered, `prev_discovery_time`
+   This tells us the time when the last packet was discovered. If it is has been more than 30s, we print `ABSENT` since it can no longer be detected
+5. An array to store the past 5 RSSI values, `rssi_values`
+   This allows us to keep a rolling average of the RSSI values received to track whether the received packet is within 3m or not
+6. A pointer to keep track of the index, `rssi_ptr`
+   This helps us to keep track of the index of the array in `rssi_values`
+7. A variable to track the state, `state`
+   This keeps track of whether this particular node is in either `ABSENT` or `DETECT` state
 
 ### Neighbour Discovery Logic
 
@@ -238,8 +251,11 @@ The logic/inspiration for this algorithm follows the Lowest Common Multiple logi
 
 #### **SENDER**
 
-Each cycle is segmented into 10 slots. The sender will wake up the radio for the one slot, before going to sleep for the remaining 9 slots, as depicted in Figure 4. This cyle repeats itself, ensuring that the sender wakes up every 10 slots.
-The sender will send out a packet at the start of the wake slot, and at the end of the wake slot.
+The **SENDER** implements a very naive algorithm. Each cycle is segmented into 10 slots. The sender will wake up the radio for the one slot, before going to sleep for the remaining 9 slots, as depicted in Figure 4. This cyle repeats itself, ensuring that the sender wakes up every 10 slots.
+
+The sender will also send out a packet at the start of the wake slot, and at the end of the wake slot. 
+
+The following image shows the description of our algorithm:
 
 <p align="center">
     <img src="./images/sender-wake-time.png"/> </br>
@@ -255,11 +271,11 @@ If we were to "stack" each cycle on top of each other, we would see
 
 #### **REQUESTER**
 
-Likewise, each cycle is segmented into 10 slots. The requester begins keeping the radio awake for a randomly chosen initial starting slot `i`, where 0 <= i <= 9, and turns the radio off for the remaining 9 slots. If there is no detection within this cycle, the requester will pick slot `i = i+1 mod 10` for the next cycle to stay awake. Same as the sender, the requester will send out a packet at the start of the wake slot, and at the end of the wake slot.
+The **REQUESTER** implements slightly more complicated algorithm, but also follows a cycle of 10 slots. The requester begins keeping the radio awake for a initial starting slot `i = 0` and turns the radio off for the remaining 9 slots. If there is no detection within this cycle, the requester will pick slot `i = i+1 mod 10` for the next cycle to stay awake. Same as the sender, the requester will send out a packet at the start of the wake slot, and at the end of the wake slot.
 
 <p align="center">
     <img src="./images/receiver-wake-time.png"/> </br>
-    <em> Figure 6: In this example, Requester nodes chooses i = 3 to start sending</em>
+    <em> Figure 6: In this example, Requester nodes starts sending at i = 0, then i = 1, 2,3,... and so forth </em>
 </p>
 
 If we were to "stack" each cycle on top of each other, we would see:
@@ -279,7 +295,7 @@ Detection occurs when the wake slots of node A and node B coincide.
 </p>
 
 Using the protocols mentioned above for the sender and requester, we can see that the wake slots will eventually coincide.
-In the figure below, the requester is started at a different time from the sender. From the requester's perspective, sender is constantly sending on slot 5.
+In the figure below, the requester is started at a different time from the sender. From the requester's perspective, sender is constantly sending on slot 2.
 
 <p align="center">
     <img src="./images/collision-time-line.png"/> </br>
@@ -289,21 +305,25 @@ In the figure below, the requester is started at a different time from the sende
     <img src="./images/collision-time-line-stacked.png"/> </br>
 </p>
 
-Once each node has discovered each other, the requester will stop incrementing `i` and stay on that slot for each cycle, ensuring its wake period will coincide with the light sensing node.
+By setting each cycle to take 1 second, the above algorithm ensures that the SENDER and REQUESTER will eventually find each other within 10 cycles, hence a deterministic 10s discovery while keeping the duty cycle at 10%.
+
+---
+
+### Synchronisation
+
+When **REQUESTER** successfully receives a discovery packet from **SENDER**, it will attempt synchronisation. Synchronisation is achieved by stopping the staggering of the wake slot (i.e. stop incrementing `i`), ensuring its subsequent wake period will coincide with the light sensing node. The requester and sender will be able to detect each other every cycle (1s discovery), increasing the amount of throughput.
 
 <p align="center">
     <img src="./images/sync-up-stacked.png"/> </br>
 </p>
 
-By setting each cycle to take 1 second, the above algorithm ensures that the SENDER and REQUESTER will eventually find each other within 10 cycles, hence a deterministic 10s discovery while keeping the duty cycle at 10%.
+However, more specifically, **REQUESTER** will perform synchronisation when it receives an discovery packet that is sent at the end of the wake slot. This is to ensure successful receive of the transferred data. More details on this aspect will be discussed after the section on [Data Transfer Logic](#data-transfer-logic).
 
-After discovery is established, the requester and sender will be able to detect each other every cycle (1s discovery), increasing the amount of throughput.
-
-### **Logic for proximity detection**
+### Logic for proximity detection
 
 Proximity detection and distance ranging is based on RSSI values. If a device is out of proximity, the received RSSI will be lower.
 
-Using RSSI, we can estimate the distance between two nodes and determine if they are out of proximity. Using the values found in Assignment 3, the average RSSI reading at 3 meters is `-65 dBm`. 
+Using RSSI, we can estimate the distance between two nodes and determine if they are out of proximity. Using the values found in Assignment 3, the average RSSI reading at 3 meters is `-65 dBm`.
 
 To ensure a more robust measurement of proximity, we keep track of the last 5 RSSI values received, and take the average of the values. If the average RSSI is stronger than `-65 dBm`, we consider it to be in proximity. Since there is only 1 sender, each requesting node will keep track of the last 5 RSSI values it received from the sender. For the sender node, it will keep track of 5 RSSI values per requester node that it sees. The sender node keeps track of the `DETECT` or `ABSENT` state for each requester node, and can simultaneously be in `ABSENT` for one requester node and `DETECT` for another. 
 
@@ -313,13 +333,15 @@ Furthermore, if one node does not receive packets from a detected node for more 
 
 Each `DETECT` and `ABSENT` statement is only printed once, whenever it transitions from a state.
 
-### Light Sensing and Data Transfer Logic
+### Light Sensing
 
 The light sensor is activated every 3s to take readings. Every 30s, a total of 10 light readings will be stored. The readings are kept track of using an array of size 10, and using a counter `light_data_counter` to keep track of which index to be stored at. Whenever it reaches the maximum size of 10, `light_data_counter % 10` is used to calculate which index is to be replaced.
 
-For transferring the light readings, once the **REQUESTER** transitions to the `DETECT` state after being within 3m for >= 15 seconds with the **SENDER**, it will use the `REQ` header in its packets to the **SENDER**. The **SENDER** receives this packet with the `REQ` header and sends the light readings back if it is also in `DETECT` state for that node.
+### Data Transfer Logic
 
-As arrays cannot be sent as it is, we created a custom struct, `light_data_arr` to store the array within the struct, then send the struct over to the **REQUESTER**.
+Each discovery packet contains a header which includes the sequence number. This sequence number is used for synchronization purposes, and for indicating whether a packet is a normal discovery packet or a request packet.
+
+For transferring the light readings, once the **REQUESTER** transitions to the `DETECT` state after being within 3m for >= 15 seconds with the **SENDER**, it will use the `REQ` header in its packets to the **SENDER**. The **SENDER** receives this packet with the `REQ` header and sends the light readings back if it is also in `DETECT` state for that node. The light readings that are sent back does not increment the sequence number.
 
 The strategy used for transferring light readings is as follows:
 1. Set a `req_flag` when **REQUESTER** enters the `DETECT` state..
@@ -327,4 +349,35 @@ The strategy used for transferring light readings is as follows:
 3. When **REQUESTER** receives data, it checks if it is the light data. If it is, it unsets the `req_flag` and will not request for any more data from the **SENDER** while it is in proximity.
 4. When **REQUESTER** leaves proximity and re-enters proximity, steps 1 to 3 is repeated
 
-The reason for steps 1 and 2 is because packets can be lost in transit, or may not be received by the **SENDER**. Therefore, we continuously use the `REQ` header when sending packets to the **SENDER**, and only stop using the `REQ` header when we have received the data that is requested, making it such that **REQUESTER** will not request for any more data while it is in proximity.
+We continuously use the `REQ` header when sending packets to the **SENDER**, and only stop using the `REQ` header when we have received the data that is requested. This ensures reliable reception of the light data by the **REQUESTER** node.
+
+---
+
+### Synchronization details
+
+When two wake slots coincide, there can be two possibilities:
+1. **REQUESTER** sees a packet sent at the ***start*** of **SENDER**'s wake slot, and vice versa for the **SENDER**
+2. **REQUESTER** sees a packet sent at the ***end*** of **SENDER**'s wake slot, and vice versa for the **SENDER**
+
+This is illustrated in the diagram below:
+
+<p align="center">
+    <img src="./images/two-cases-discovery.png" /> </br>
+</p>
+
+In both cases, both nodes discover each other. However, synchronization is only performed in the second case, where **REQUESTER** sees a packet sent at the ***end*** of **SENDER**'s wake slot.
+
+Each discovery packet contains a header which includes the sequence number. Given that sequence number begins sending at number `0`, and we send 2 packets per wake slot, this implies that a discovery packet sent at the end of a wake slot will have an odd sequence number. As such, **REQUESTER** synchronizes only when it sees a odd-number packet from the **SENDER**.
+
+This is done to because **REQUESTER** needs to receive information from the sender. When the **SENDER** sees the `REQ` packet from **REQUESTER**, and sends back the light reading, we need to ensure that the **REQUESTER**'s radio is listening. By synchronizing on odd numbered packets, the `REQ` packet seen by the **SENDER** is sent at the start of **REQUESTER**'s wake slot, hence guaranteeing that the **REQUESTER** is still awake for the rest of the wake slot when the **SENDER** returns the light reading:
+
+<p align="center">
+    <img src="./images/data_recv_not_recv.png" /> </br>
+</p>
+
+
+## Enhancements Made (Bonus Marks)
+
+With the implementation of two different algorithms, we consider this to be an enhancement to the project which consequently also reduces the duty cycle. Further, this algorithm will synchronise the SensorTags, and has not been mentioned or introduced anywhere within the scope of the course.
+
+Thus, we believe this should qualify for the bonus marks, or "creativity of solution".
