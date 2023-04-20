@@ -172,14 +172,16 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
         sender_info.out_of_prox_since = -1;
       }
 
-      unsigned long time_diff = curr_timestamp - sender_info.in_proximity_since;
-      if (state != DETECT && time_diff / CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
-        printf("%3lu.%03lu DETECT %ld\n", sender_info.in_proximity_since / CLOCK_SECOND, ((sender_info.in_proximity_since % CLOCK_SECOND) * 1000) / CLOCK_SECOND, sender_info.src_id);
+      long time_diff = curr_timestamp - sender_info.in_proximity_since;
+      if (time_diff / CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+        if (state != DETECT) {
+          printf("%3lu.%03lu DETECT %ld\n", sender_info.in_proximity_since / CLOCK_SECOND, ((sender_info.in_proximity_since % CLOCK_SECOND) * 1000) / CLOCK_SECOND, sender_info.src_id);
+          state = DETECT;
+        }
         req_flag = TRUE;
-        state = DETECT;
+        sender_info.in_proximity_since = sender_info.in_proximity_since + (30 * CLOCK_SECOND);
       }
-    }
-    else {
+    } else {
       if (sender_info.out_of_prox_since == -1) {
         sender_info.out_of_prox_since = curr_timestamp;
         sender_info.in_proximity_since = -1;
