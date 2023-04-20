@@ -332,3 +332,11 @@ The strategy used for transferring light readings is as follows:
 The reason for steps 1 and 2 is because packets can be lost in transit, or may not be received by the **SENDER**. Therefore, we need to send multiple `REQ` packets to the **SENDER** to inform the **SENDER** to send data to that particular **REQUESTER**.
 
 Our design also makes it such that **REQUESTER** will not request for any more data while it is in proximity.
+
+---
+
+## Enhancements Made (Bonus Marks)
+
+With the implementation of two different algorithms, we consider this to be an enhancement to the project which consequently also reduces the duty cycle. Further, this algorithm is not mentioned or introduced anywhere within the scope of the lecture.
+
+Thus, we believe this should qualify for the bonus marks, or "creativity of solution".
