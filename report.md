@@ -220,7 +220,8 @@ Where `DISCOVER_WITHIN` stands for the upper bound time for a packet to be disco
 
 `N` is the number of rows and columns (as in the image above), and `SLOT_TIME` is the amount of time per slot. `SLOT_TIME` is calculated as `DISCOVER_WITHIN/(N*N)`. By varying `N`, we can control the duty cycle of the discovery algorithm.
 
-`N` is set to a value of 10, and hence the number of slots is 100. Of these 100 slots, the radio will be on for 19 of the slots, and hence our duty cycle is calculated to be 19%.
+`N` is set to a value of 13, and hence the number of slots is 169. Of these 169 slots, the radio will be on for 25 of the slots, and hence our duty cycle is calculated to be 14.79%. 
+ Using `N = 13` means that each slot is 0.06 seconds long, which is long enough for the radio to transmit and receive reliably. Using any value higher than `N = 13` causes the `SLOT_TIME` to be too short, which affects the reliability of the radio.
 
 Based on our tests, the maximum 2-way discovery latency is around 9.8s. The theoretical upper-bound is set at 10s.
 

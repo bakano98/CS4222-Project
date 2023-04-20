@@ -18,7 +18,7 @@
 
 // Configures the wake-up timer for neighbour discovery 
 #define DISCOVER_WITHIN 10*RTIMER_SECOND
-#define N 10
+#define N 13
 #define SLOT_TIME DISCOVER_WITHIN/(N*N)
 
 #define NUM_DATA 50 // modify this to increase the number of experiments -- minimum is 10.
@@ -120,7 +120,7 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
     // printf("Time taken to receive packet from startup: %3lu.%03lu\n", diff_from_startup / CLOCK_SECOND, ((diff_from_startup % CLOCK_SECOND)*1000) / CLOCK_SECOND);
     // printf("=============================================\n");
 
-    printf("Timestamp after accounting for offset: %3lu.%03lu\n", after_offset / CLOCK_SECOND, ((after_offset % CLOCK_SECOND) * 1000) / CLOCK_SECOND);
+    printf("Timestamp: %3lu.%03lu\n", after_offset / CLOCK_SECOND, ((after_offset % CLOCK_SECOND) * 1000) / CLOCK_SECOND);
 
     if (prev_discovery_timestamp != -1) {
       diff = curr_timestamp - prev_discovery_timestamp;
@@ -186,7 +186,7 @@ char sender_scheduler(struct rtimer* t, void* ptr) {
 
   while(1) {
     NETSTACK_RADIO.get_value(RADIO_PARAM_POWER_MODE, &value);
-    printf("Current network status: %s\n", value == RADIO_POWER_MODE_OFF ? "off" : "on");
+    // printf("Current network status: %s\n", value == RADIO_POWER_MODE_OFF ? "off" : "on");
     if (curr_slot % N == col || (curr_slot / N) % N == row) {
       if (value == RADIO_POWER_MODE_OFF){
         NETSTACK_RADIO.on();
