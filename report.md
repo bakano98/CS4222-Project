@@ -248,6 +248,8 @@ Furthermore, due to the amount of information that needs to be kept track of by 
 7. A variable to track the state, `state`
    This keeps track of whether this particular node is in either `ABSENT` or `DETECT` state
 
+Similarly, the **REQUESTER** needs to keep track of certain information from the sender. Thus, we created a similar struct to the above named `sender_store_struct`. While these two structs are similar, they serve similar purposes, they are **not the same**, since they keep track of different things.
+
 ---
 
 ### Neighbour Discovery Logic
