@@ -248,7 +248,7 @@ Furthermore, due to the amount of information that needs to be kept track of by 
 7. A variable to track the state, `state`
    This keeps track of whether this particular node is in either `ABSENT` or `DETECT` state
 
-Similarly, the **REQUESTER** needs to keep track of certain information from the sender. Thus, we created a similar struct to the above named `sender_store_struct`. While these two structs are similar, they serve similar purposes, they are **not the same**, since they keep track of different things.
+Similarly, the **REQUESTER** needs to keep track of certain information from the sender. Thus, we created a similar struct to the above named `sender_store_struct`. While these two structs are similar and serve similar purposes, they are **not the same**.
 
 ---
 
@@ -280,7 +280,7 @@ If we were to "stack" each cycle on top of each other, we would see
 
 #### **REQUESTER**
 
-The **REQUESTER** implements slightly more complicated algorithm, but also follows a cycle of 10 slots. The requester begins keeping the radio awake for a initial starting slot `i = 0` and turns the radio off for the remaining 9 slots. If there is no detection within this cycle, the requester will pick slot `i = i+1 mod 10` for the next cycle to stay awake. Same as the sender, the requester will send out a packet at the start of the wake slot, and at the end of the wake slot.
+The **REQUESTER** implements a slightly more complicated algorithm, but also follows a cycle of 10 slots. The requester begins by keeping the radio awake for a initial starting slot `i = 0` and turns the radio off for the remaining 9 slots. If there is no detection within this cycle, the requester will pick slot `i = i+1 mod 10` for the next cycle to stay awake. Same as the sender, the requester will send out a packet at the start of the wake slot, and at the end of the wake slot.
 
 <p align="center">
     <img src="./images/receiver-wake-time.png"/> </br>
