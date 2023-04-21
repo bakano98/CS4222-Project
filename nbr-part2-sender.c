@@ -154,7 +154,7 @@ get_light_reading()
   value = opt_3001_sensor.value(0);
   if (value != CC26XX_SENSOR_READING_ERROR) {
     light_data[light_data_counter % 10] = value;
-    printf("OPT: Light=%d.%02d lux\n", value / 100, value % 100);
+    // printf("OPT: Light=%d.%02d lux\n", value / 100, value % 100);
   }
   else {
     printf("OPT: Light Sensor's Warming Up\n\n");
@@ -205,10 +205,10 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
     // Copy the content of packet into the data structure
     memcpy(&received_packet_data, data, len);
     signed short recv_rssi = (signed short)packetbuf_attr(PACKETBUF_ATTR_RSSI);
-    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi, received_packet_data.src_id);
+    // printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi, received_packet_data.src_id);
 
     if (received_packet_data.seq == REQ) {
-      printf("Received REQ\n");
+      // printf("Received REQ\n");
       req_flag = TRUE;
     }
 
@@ -231,10 +231,8 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
     }
 
     if (curr == NULL && node_slot == -1) {
-      printf("Max capacity reached\n");
-    }
-    else {
-
+      // printf("Max capacity reached\n");
+    } else {
       if (curr == NULL) { //register new node by initializing node_tracker slot
         curr = &node_tracker[node_slot];
         node_mem_map[node_slot] = TRUE;

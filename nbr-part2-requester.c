@@ -147,12 +147,12 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
   if (len == sizeof(data_packet)) {
     data_packet_struct received_packet_data;
     memcpy(&received_packet_data, data, len);
-    printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi, received_packet_data.src_id);
+    // printf("Received neighbour discovery packet %lu with rssi %d from %ld\n", received_packet_data.seq, recv_rssi, received_packet_data.src_id);
 
     if (!sync_flag && received_packet_data.seq % 2 != 0) {
-      printf("Attempting to sync\n");
+      // printf("Attempting to sync\n");
       sync_flag = TRUE;
-      printf("Set sync flag\n");
+      // printf("Set sync flag\n");
     }
 
     if (received_packet_data.src_id != sender_info.src_id) { //new sender detected
@@ -172,14 +172,16 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
         sender_info.out_of_prox_since = -1;
       }
 
-      unsigned long time_diff = curr_timestamp - sender_info.in_proximity_since;
-      if (state != DETECT && time_diff / CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
-        printf("%3lu.%03lu DETECT %ld\n", sender_info.in_proximity_since / CLOCK_SECOND, ((sender_info.in_proximity_since % CLOCK_SECOND) * 1000) / CLOCK_SECOND, sender_info.src_id);
+      long time_diff = curr_timestamp - sender_info.in_proximity_since;
+      if (time_diff / CLOCK_SECOND >= IN_PROXIMITY_THRESHOLD) {
+        if (state != DETECT) {
+          printf("%3lu.%03lu DETECT %ld\n", sender_info.in_proximity_since / CLOCK_SECOND, ((sender_info.in_proximity_since % CLOCK_SECOND) * 1000) / CLOCK_SECOND, sender_info.src_id);
+          state = DETECT;
+        }
         req_flag = TRUE;
-        state = DETECT;
+        sender_info.in_proximity_since = sender_info.in_proximity_since + (30 * CLOCK_SECOND);
       }
-    }
-    else {
+    } else {
       if (sender_info.out_of_prox_since == -1) {
         sender_info.out_of_prox_since = curr_timestamp;
         sender_info.in_proximity_since = -1;
@@ -200,9 +202,12 @@ void receive_packet_callback(const void* data, uint16_t len, const linkaddr_t* s
     memcpy(&received_data, data, len);
     printf("Light:  ");
     for (int i = 0; i < 10; i++) {
-      printf("Reading %d: %d.%02d lux, ", i + 1, received_data.data[i] / 100, received_data.data[i] % 100);
+      if (i == 9) {
+        printf("%d.%02d\n", received_data.data[i] / 100, received_data.data[i] % 100);
+      } else {
+        printf("%d.%02d, ", received_data.data[i] / 100, received_data.data[i] % 100);
+      }
     }
-    printf("\n");
   }
 }
 
