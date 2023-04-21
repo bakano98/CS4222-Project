@@ -79,8 +79,6 @@ We performed the experiment 20 times manually. After each reboot of B, A prints 
 
 The average time for device A to discover B after resetting, according to our data is approximately 4.08s
 
-</br>
-
 ### Question 3
 
 The following modifications were made:
@@ -291,7 +289,7 @@ If we were to "stack" each cycle on top of each other, we would see:
 
 <p align="center">
     <img src="./images/receiver-wake-cycle.png"/> </br>
-    <em> Figure 7 </em>
+    <em> Figure 7: Wake slots for different cycles </em>
 </p>
 
 #### **Detection**
@@ -300,7 +298,7 @@ Detection occurs when the wake slots of node A and node B coincide.
 
 <p align="center">
     <img src="./images/detection-no-detection.png"/> </br>
-    <em> Figure 8 </em>
+    <em> Figure 8: Illustration of packet discovery </em>
 </p>
 
 Using the protocols mentioned above for the sender and requester, we can see that the wake slots will eventually coincide.
@@ -312,6 +310,7 @@ In the figure below, the requester is started at a different time from the sende
 
 <p align="center">
     <img src="./images/collision-time-line-stacked.png"/> </br>
+    <em> Figures 8 & 9: Timeline of packet discovery across different cycles </em>
 </p>
 
 By setting each cycle to take 1 second, the above algorithm ensures that the SENDER and REQUESTER will eventually find each other within 10 cycles, hence a deterministic 10s discovery while keeping the duty cycle at 10%.
@@ -324,9 +323,10 @@ When **REQUESTER** successfully receives a discovery packet from **SENDER**, it 
 
 <p align="center">
     <img src="./images/sync-up-stacked.png"/> </br>
+    <em> Figure 10: Attempting synchronisation when discovery packet successfully received</em>
 </p>
 
-However, more specifically, **REQUESTER** will perform synchronisation when it receives an discovery packet that is sent at the end of the wake slot. This is to ensure successful receive of the transferred data. More details on this aspect will be discussed in the section on [synchronization details](#synchronization-details).
+However, more specifically, **REQUESTER** will perform synchronisation when it receives an discovery packet that is sent at the end of the wake slot. This is to ensure successful receive of the transferred data. More details on this aspect is discussed in the section on [synchronisation details](#synchronisation-details).
 
 ---
 ### Logic for proximity detection
@@ -353,7 +353,7 @@ The light sensor is activated every 3s to take readings. Every 30s, a total of 1
 
 ### Data Transfer Logic
 
-Each discovery packet contains a header which includes the sequence number. This sequence number is used for synchronization purposes, and for indicating whether a packet is a normal discovery packet or a request packet.
+Each discovery packet contains a header which includes the sequence number. This sequence number is used for synchronisation purposes, and for indicating whether a packet is a normal discovery packet or a request packet.
 
 For transferring the light readings, once the **REQUESTER** transitions to the `DETECT` state after being within 3m for >= 15 seconds with the **SENDER**, it will use the `REQ` header in its packets to the **SENDER**. The **SENDER** receives this packet with the `REQ` header and sends the light readings back if it is also in `DETECT` state for that node. The light readings that are sent back does not increment the sequence number.
 
@@ -369,7 +369,7 @@ Also, in the `DETECT` state, we will set the `req_flag` every 30 seconds, causin
 
 ---
 
-### Synchronization details
+### Synchronisation Details
 
 When two wake slots coincide, there can be two possibilities:
 1. **REQUESTER** sees a packet sent at the ***start*** of **SENDER**'s wake slot, and vice versa for the **SENDER**
@@ -379,21 +379,23 @@ This is illustrated in the diagram below:
 
 <p align="center">
     <img src="./images/two-cases-discovery.png" /> </br>
+    <em> Figure 11: Possible cases of packet discovery </em>
 </p>
 
-In both cases, both nodes discover each other. However, synchronization is only performed in the second case, where **REQUESTER** sees a packet sent at the ***end*** of **SENDER**'s wake slot.
+In both cases, both nodes discover each other. However, synchronisation is only performed in the second case, where **REQUESTER** sees a packet sent at the ***end*** of **SENDER**'s wake slot.
 
-Each discovery packet contains a header which includes the sequence number. Given that sequence number begins sending at number `0`, and we send 2 packets per wake slot, this implies that a discovery packet sent at the end of a wake slot will have an odd sequence number. As such, **REQUESTER** synchronizes only when it sees a odd-number packet from the **SENDER**.
+Each discovery packet contains a header which includes the sequence number. Given that sequence number begins sending at number `0`, and we send 2 packets per wake slot, this implies that a discovery packet sent at the end of a wake slot will have an **odd sequence number**. As such, **REQUESTER** synchronises only when it sees an odd numbered packet from the **SENDER**.
 
-This is done to because **REQUESTER** needs to receive information from the sender. When the **SENDER** sees the `REQ` packet from **REQUESTER**, and sends back the light reading, we need to ensure that the **REQUESTER**'s radio is listening. By synchronizing on odd numbered packets, the `REQ` packet seen by the **SENDER** is sent at the start of **REQUESTER**'s wake slot, hence guaranteeing that the **REQUESTER** is still awake for the rest of the wake slot when the **SENDER** returns the light reading:
+This is done because **REQUESTER** needs to receive information from the sender. When the **SENDER** sees the `REQ` packet from **REQUESTER**, and sends back the light reading, we need to ensure that the **REQUESTER**'s radio is listening. By synchronising on odd numbered packets, the `REQ` packet seen by the **SENDER** is sent at the start of **REQUESTER**'s wake slot, hence guaranteeing that the **REQUESTER** is still awake for the rest of the wake slot when the **SENDER** returns the light reading, as illustrated by Figure 12 below:
 
 <p align="center">
     <img src="./images/data_recv_not_recv.png" /> </br>
+    <em> Figure 12: Outcomes of the two different cases</em>
 </p>
 
 
 ## Enhancements Made (Bonus Marks)
 
-With the implementation of two different algorithms, we consider this to be an enhancement to the project which consequently also reduces the duty cycle. Further, this algorithm will synchronise the SensorTags, and has not been mentioned or introduced anywhere within the scope of the course.
+With the implementation of two different algorithms, we consider this to be an enhancement to the project which consequently also reduces the duty cycle. This algorithm will synchronise the SensorTags, and has not been mentioned or introduced anywhere within the scope of the course. Further, much effort was made to explain the algorithm in-depth with the use of multiple illustrations.
 
 Thus, we believe this should qualify for the bonus marks, or "creativity of solution".
